@@ -1,0 +1,129 @@
+---
+title: "Chapter 7 Lab Answer Key"
+author: "Tianwei Liu"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+## Preparation
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+require(knitr)
+require(haven)
+require(car)
+require(AER)
+require(lm.beta)  ## install.packages("lm.beta")
+
+opts_chunk$set(echo = TRUE)
+options(digits = 6)
+```
+
+```{r message = FALSE, include = FALSE}
+rm(list = ls(all = TRUE))   # Remove objects from the previous session
+load('Chapter7_lab.RData')
+```
+#### (a) Estimate a model for women predicting wages in 1996 as a function of height in 1985 and 1981, siblings and esteem from 1980.  Use standardized coefficients and report results.  How do the t statistics compare to t statistics in an unstandardized model? (You don't need to report the unstandardized results.)
+```{r tidy = FALSE}
+reg1 <- lm(scale(wage96) ~ scale(height85) + scale(height81) + scale(siblings) + scale(esteem80), data = dta[dta$male == 0,])
+summary(reg1)
+```
+
+- Coefficients on height85 and height81 are not statistically significant at conventional level alpha = 95% as the p-values associated with the two coefficients are greater than 0.05. Therefore, we fail to reject the null that heights have an effect on wages.
+- Coefficients on siblings is -0.051, and the coefficient is statistically significant because the p-value associated with it is 0.0077, smaller than level of significance 0.01. This means that an increase of a standard deviation in number of siblings is associated with 0.051 standard deviation decrease in wages.
+- Similarly, coefficients in siblings is 0.058, and the coefficient is statistically significant as the p-value associated with it is 0.0024, smaller than 0.01 level of significance. This means that an increase of a std in self-esteem is associated with an increase of 0.058 std increase in wages.
+
+```{r tidy = FALSE}
+reg1_unstd <- lm(wage96 ~ height85 + height81 + siblings + esteem80, data = dta[dta$male == 0,])
+summary(reg1_unstd)
+```
+
+The two models differ only in the estimates coefficients and standard errors, becasue the variables are standardized in one but not in the other. t-stats and p-values associated with the coefficients are the same across two models.
+
+#### (b) Add several covariates (your choice) to the above model, including dummy variables for race/ethnicity.  Use standardized coefficients as appropriate to each variable and briefly discuss effects, focusing on effect of race relative to the esteem variable (as an example of a continuous covariate).
+```{r tidy = FALSE}
+# Estimate regression models using scale command for continuous variables
+dta$esteemblack = dta$esteem80 * dta$black
+reg2 <- lm(scale(wage96) ~ scale(height85) + scale(height81) + scale(siblings) + scale(esteem80) + black + esteemblack, data = dta[dta$male == 0,])
+summary(reg2)
+```
+
+Compared with the model in the previous question, this model includes black as a dummy independent variable and an interaction term between self-esteem and black. Since coefficients on black and on esteemblack are not statistically significant, there is not a significant of being black on wages nor the differential effect of self-esteem for blacks.
+
+#### (c) Models with wages often have logged variables in order to be able to provide results in percentage terms rather than absolute dollars.  Estimate a log-linear model for women.  To keep things simple, use only *height85*, *height81*, *esteem80*, *black* and *siblings* as the covariates.
+
+```{r tidy = FALSE}
+dta$wage96.NoNA = dta$wage96
+dta$wage96.NoNA[dta$wage96==0] = NA ## Clean for wages == 0 because logs do not work with non-positive numbers
+reg3 <- lm(log(wage96.NoNA) ~ height85 + height81 + siblings + esteem80 + black, data = dta[dta$male == 0,])
+summary(reg3)
+```
+
+- Coefficients on two height variables are not statistically significant, so there appears to be no effect of height on wages.
+- The coefficient on siblings is -0.0312, meaning that one more siblings is associated with 3.12% decrease in wages, and this coefficient is statistically significant because the p-value is smaller than 0.001 level of significance.
+- The coefficient on self-esteem is 0.051 which is significant as the p-value associated with it is smaller then 0.001 level of significance, meaning that an unit increase in self-esteem is associated with 5.1% increase in wages.
+- The coefficient on black is -0.168. This coefficient is statistically significant as the p-value associated with it is smaller than 0.001 level of significance. This coefficient suggests that black people, holding all else equal, earn 16.8% less than non-blacks.
+
+#### (d) Starting with the above model (for women only), create a model in which the effect of siblings is potentially non-linear via a quadratic equation.  Discuss the results and note the effect of siblings in general term and for specific cases when *siblings* equals 1 and when *siblings* equals 5. (For fun, estimate the same model for men.  You don't need to report or discuss those results.)
+
+```{r tidy = FALSE}
+reg4 <- lm(log(wage96.NoNA) ~ height85 + height81 + esteem80 + black + siblings + I(siblings^2), data = dta[dta$male == 0,])
+summary(reg4)
+```
+
+- In general terms, the effect of siblings is equal to -0.065 * siblings + 0.0031 * siblings^2
+- When siblings == 1, the effect = -0.0619, meaning that having one sibling will likely decrease wage by 6.5%.
+- When siblings == 5, the effect = -0.2475, meaning that having five siblings will likely decrease wage by 24.75%.
+
+```{r tidy = FALSE}
+reg4_male <- lm(log(wage96.NoNA) ~ height85 + height81 + esteem80 + black + siblings + I(siblings^2), data = dta[dta$male == 1,])
+summary(reg4_male)
+```
+
+#### (e) Estimate a model for women only in which the dependent variable is log of wages and the independent variables are *momed79*, *daded79*, *height85*, *height81*, *black* and *hispanic*.  Test the null hypothesis that the effect of mother's education is the same as the effect of father's education.  Report unrestricted and unrestricted models and then show the calculation of the F-statistic and explain the results.
+
+```{r tidy = FALSE}
+## Unrestricted model
+reg5_unres <- lm(log(wage96.NoNA)~momed79 + daded79 + height85 + height81 + black + hispanic, data = dta[dta$male == 0,])
+summary(reg5_unres)
+```
+- Both of our variable of interest are statistically significant as the p-values are below 0.001 level of significance. Therefore, we reject the null and claim that mom's education level and dat's education level have effects on wages. An one-unit increase in mother's education level is associated with 2.8% increase in wages; an one-unit increase in father's education level is associated with roughly 3.3% increase in wages.
+
+```{r tidy = FALSE}
+## For the restricted model, our hypothesis is that mother's education has the same effect as father's education.
+dta$parentsedu <- dta$momed79 + dta$daded79
+reg5_res <- lm(log(wage96.NoNA)~ parentsedu + height85 + height81 + black + hispanic, data = dta[dta$male == 0,])
+summary(reg5_res)
+```
+
+- In the restricted model, parentsedu is statistically significant with a very small p-value, well below the 0.001 threshold. An one-unit increase in parents education level is associated with a 3.1% increase in wages. 
+
+```{r}
+#calculate F stat
+F.stat.top = ((summary(reg5_unres)$r.squared - summary(reg5_res)$r.squared)/1)
+F.stat.bottom = ((1-summary(reg5_unres)$r.squared)/(summary(reg5_unres)$df[2]))
+F.stat = F.stat.top/F.stat.bottom
+F.stat
+```
+
+```{r}
+qf(1-0.05, df1=1, df2= summary(reg5_unres)$df[2])
+```
+
+Since the F-statistic is smaller than the critical value, we fail to reject the null that the effect of mother's education is the same as the effect of father's education on wages. Therefore, these two effects are different.
+
+#### BONUS: Based on the previous model, test the null hypothesis that both **height85* and *height81* equal zero. Report unrestricted and unrestricted models and then show the calculation of the F-statistic and explain the results.
+
+```{r tidy = FALSE}
+reg6_res <- lm(log(wage96.NoNA)~momed79 + daded79 + black + hispanic, data = dta[dta$male ==0,])
+F.stat2.top = ((summary(reg5_unres)$r.squared - summary(reg6_res)$r.squared)/2)
+F.stat2.bottom = ((1-summary(reg5_unres)$r.squared)/(summary(reg5_unres)$df[2]))
+F.stat2 = F.stat2.top/F.stat2.bottom
+F.stat2
+```
+
+```{r tidy = FALSE}
+qf(1-0.05, df1=2, df2= summary(reg5_unres)$df[2])
+```
+
+As the F-stat we calcualted is larger than the critical value, we reject the null that both height85 and height81 are equal to zero. We claim that at least one of these two coefficients are non-zero. 

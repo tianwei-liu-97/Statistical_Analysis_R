@@ -1,0 +1,155 @@
+---
+title: "Chapter3_Problem_Set"
+author: "Tianwei Liu"
+date: "9/22/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Load Data
+load("Ch3_Exercise3_Height_and_Wages_UK.RData")
+load("Ch3_Exercise4_Divorce_rates_Men.RData")
+load("Ch3_Exercise4_Divorce_rates_Women.RData")
+```
+
+3. 
+(a) Estimate a model where height at age 33 explains income at age 33. Explain Beta1 and Beta0.
+```{r}
+my_reg1 <- lm (gwage33 ~ height33, data=dta)
+summary(my_reg1)
+```
+Beta1 has a value of 0.2447. This means that an one-inch increase in the 33 years-old man group increases hourly wage by 0.2447 pound.
+Beta0 has a value of -6.5994. This means that when a man has 0 inch of height, his hourly wage is -6.5994.
+
+
+(b) Create a scatterplot of height and income at age 33. Identify outliers.
+```{r}
+plot(dta$height33, dta$gwage33, pch = 19, col = "blue", xlab = "Height at age 33", ylab = "Hourly Wage at age 33 in British Pound", main = "Scatterplot of height and income at age33")
+```
+There is one observation whose hourly wage is about 2500 British pounds and three observations whose wage is around 500 pounds per hour. These observations are outliers.
+
+
+(c) Create a scatterplot of height and income at age 33, but exclude observations with wages per hour more than 400 British pounds and height less than 40 inches. Describe the difference from the earlier plot. Which plot seems the more reasonable basis for statistical analysis? Why?
+```{r}
+plot(dta$height33[dta$height33>=40 & dta$gwage33<400], dta$gwage33[dta$height33>=40 & dta$gwage33<400], pch = 19, col = "blue", xlab = "Height at age 33", ylab = "Hourly Wage at age 33 in British Pound", main = "Scatterplot of height(>=40 inches) and income (<400/h) at age33")
+```
+In this graph, compared with the earlier one, we can see the variation among the 0-200 income group better. The second plot is a more reasonable basis for statistical analysis because it has moreved the unreasonably high income observations and therefore potentially corrected for mistakes as well. 
+
+
+(d) Reestimate the bivariate OLS model from part (a), but exclude four outliers with very high wages and outliers with height below 40 inches. Briefly compare results to earlier results.
+
+```{r}
+## Prepare the data set with conditions imposed
+dta2 <- subset(dta, (dta$height33>=40 & dta$gwage33<400))
+## Run Reg on the new dataset with conditions
+my_reg2 <- lm (gwage33 ~ height33, data=dta2)
+summary(my_reg2)
+```
+The biggest difference is that after removing outliers from our analysis, the estimate of beta1 coefficient is now statistically significant. 
+
+(e) What happens when the sample size is smaller? To answer this question, reestimate the bivariate OLS model from above (that excludes outliers), but limit the analysis to the first 800 observations. Which changes more from the results with the full sample: the estimated coefficient on height or the estimated standard error of the coefficient on height? Explain.
+
+```{r}
+## Include only the first 800 Observations 
+my_reg3 <- lm (gwage33 ~ height33, data=dta2[1:800,])
+summary(my_reg3)
+```
+Once we reduce the sample size, the results become less significant. The standard error changed more while the estimated coefficient on height are pretty similar between the two models. Because the standard error is the square root of variance, which is directly linked to sample size N, so standard error is more likely to be affected by a change in the number of observations.
+
+
+4. 
+(a) For each data set (for women and for men), create a scatterplot of hours worked on the Y-axis and divorce rates on the X-axis.
+
+```{r}
+plot(Mdata$divorcerate, Mdata$hours, pch = 19, col = "blue", xlab = "Divorce Rates", ylab = "Hours worked", main = "Scatterplot of hours worked and divorce rates for men")
+```
+
+```{r}
+plot(Wdata$divorcerate, Wdata$hours, pch = 19, col = "blue", xlab = "Divorce Rates", ylab = "Hours worked", main = "Scatterplot of hours worked and divorce rates for women")
+```
+
+
+(b) For each data set, estimate an OLS regression in which hours worked is regressed on divorce rates. Report the estimated regression equation, and interpret the coefficients. Explain any differences in coefficients.
+
+```{r}
+my_regmen <- lm (hours~divorcerate, data=Mdata)
+summary (my_regmen)
+```
+Estimated Regression Equation: Hours_worked = 1410.642 + 0.000375*divorce_rate
+Intepretation: An one-percent increase in divorce rate is associated with a 1.798 increase in hours worked for men. In countries where divorce rate is 0, men work 1410.642 hours. 
+
+```{r}
+my_regwomen <- lm (hours~divorcerate, data=Wdata)
+summary (my_regwomen)
+```
+Estimated Regression Equation: Hours_Worked = 601.86 + 48.28*divorce_rate 
+Intepretation: An one-percent increase in divorce rate is associated with 48.28 more hours worked for women. In a country where divorce rate is 0, women work for 601.86 hours. 
+
+In general, hours worked of women is more strongly correlated with divorce rate than that of men. An one-percent increase in divorce rate is associate with 1.798 more hours worked for men but 48.28 hours for women. Also, women work fewer hours than men on average.
+
+(c) What are the fitted value and residual for men in Germany?
+
+```{r}
+my_regmen$fitted.values[6]
+my_regmen$residuals[6]
+```
+
+
+(d) What are the fitted value and residual for women in Spain?
+
+```{r}
+my_regwomen$fitted.values[14]
+my_regwomen$residuals[14]
+```
+
+
+5. 
+(a) For each data set (for women and for men), create a scatterplot of hours worked on the Y-axis and tax rates on the X-axis.
+
+```{r}
+plot (Wdata$taxrate, Wdata$hours, pch=19, xlab = "Tax Rates", ylab = "Hours worked (Women)", main = "A scatterplot of hours worked and tax rates of women")
+```
+
+```{r}
+plot (Mdata$taxrate, Mdata$hours, pch=19, xlab = "Tax Rates", ylab = "Hours worked (Men)", main = "A scatterplot of hours worked and tax rates of men")
+```
+
+
+(b) For each data, set estimate an OLS regression in which hours worked is regressed on tax rates. Report the estimated regression equation, and interpret the coefficients. Explain any differences in coefficients.
+
+```{r}
+my_regwomen1 <- lm (hours~taxrate, data=Wdata)
+summary (my_regwomen1)
+```
+Estimated Regression Equation: Hours_Worked = 827.05 + 53.45*tax_rate 
+Inteperatation: An one-percent increase in tax rate increases hours worked for women by 0.53 hours (Note that tax rate is measured on a scale of 0-1). In a country where tax rate is 0, women work 827.05 hours. 
+
+```{r}
+my_regmen1 <- lm (hours~taxrate, data=Mdata)
+summary (my_regmen1)
+```
+Estimated Regression Equation: Hours_worked = 1748.5 + (-1122.4)*tax_rate 
+Intepretation: An one-percent increase in tax rate decreases hours worked by men by 11.22 hours (tax rate on a sclae of 0-1). In a country where tax rate is 0, men work 1748.5 hours.
+
+Differences: Men work less hours when tax rate increases while women work more hours. 
+
+(c) What are the fitted value and residual for men in the United States?
+
+```{r}
+my_regmen1$fitted.values[18]
+my_regmen1$residuals[18]
+```
+
+(d) What are the fitted value and residual for women in Italy?
+
+```{r}
+my_regwomen1$fitted.values[9]
+my_regwomen1$residuals[9]
+```
+
+

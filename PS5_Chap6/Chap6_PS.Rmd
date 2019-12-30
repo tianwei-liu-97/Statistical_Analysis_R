@@ -1,0 +1,192 @@
+---
+title: "Problem Set Chapter 6"
+author: "Tianwei Liu"
+date: "11/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(openxlsx)
+load("Ch6_Exercise2_FederalReserve.RData")
+```
+
+2.These questions are based on “The Fed May Be Politically Independent but It Is not Politically Indifferent,” a paper by William Clark and Vincent Arel-Bundock (2013). The paper explores the relationship between elections and the federal funds rate (FFR). Often a benchmark for financial markets, the FFR is the average interest rate at which federal funds trade in a day. The rate is set by the U.S. central bank, the Federal Reserve, a.k.a. the Fed. Table 6.11 describes the variables from fed_2012.dta that we use in this problem.
+
+(a)Create two scatterplots, one for years in which a Democrat was president and one for years in which a Republican was president, showing the relationship between the FFR and the quarters since the previous election. Comment on the differences in the relationships. The variable Quarters is coded 0 to 15, representing each quarter from one election to the next. For each presidential term, the value of Quarters is 0 in the first quarter containing the election and 15 in the quarter before the next election.
+
+```{r,fig.width=8, fig.height=4}
+dta_dem = dta[dta$democrat == 1,]
+plot(dta_dem$election, dta_dem$FEDFUNDS, pch = 19, col = "blue", main = "Relationship Between FFR and quarters since previous election for Democrat President", xlab = "Quarters", ylab = "FFR")
+```
+
+```{r,fig.width=8, fig.height=4}
+dta_rep = dta[dta$democrat == 0,]
+plot(dta_rep$election, dta_rep$FEDFUNDS, pch = 19, col = "blue", main = "Relationship Between FFR and quarters since previous election for Republican President", xlab = "Quarters", ylab = "FFR")
+```
+There is an upward trend for the FFR when the incumbent is democrat as the Quarters increase, however the trend seems downward sloping for the FFR when the incumbent is republican. 
+
+(b)Create an interaction variable between Quarters and Democrat to test whether closeness to elections has the same effect on Democrats and Republicans. Run a model with the FFR as the dependent variable, allowing the effect of the Quarters variable to vary by party of the president.
+
+(i)What change in FFR is associated with a one-unit increase in the Quarters variable when the president is a Republican?
+
+```{r}
+dta$duminterac = dta$election * dta$democrat
+reg1 <- lm(FEDFUNDS ~ election + democrat + duminterac, data = dta)
+summary (reg1)
+```
+
+We need to note that the model is Y = B0 + B1* Election + B2* Democrat + B3* Election* Democrat (duminterac) + Error_term
+Based on this model, when the president is a Republican, our dummy variable Democrat = 0. Therefore, one-unit increase in the Quarters (election) is associated with a 0.265 decrease in the FFR.
+
+(ii)What change in FFR is associated with a one-unit increase in the Quarters variable when the president is a Democrat?
+
+When the president is a democrat, our dummy variable Democrat = 1. Therefore, one-unit increase in the quarters (election) is associated with a B1 + B3 = (-0.265 + 0.558) = 0.293 increase in the FFR. 
+
+(c)Is the effect of Quarters statistically significant under Republicans? (Easy.) Is the effect of Quarters statistically significant under Democrats? (Not so easy.) How can the answer be determined? Run any additional tests if necessary.
+
+Under Republicans, dummy variable Democrat = 0, so the effect is simply B1. Given the regression result, the p-value associated with B1 is 1.1 * 10^-5 which is smaller than the 0.001 level of significance at alpha = 0.999. Therefore the coefficient on Quarters (Election) is statistically significant. 
+
+In order to know if the effect of Quarters (Election) is statistically significant under Democrats, we would run a model of FFR on election controlling for democrats (using the previously created dta_demo dataset).
+
+```{r}
+reg1_c <- reg1 <- lm(FEDFUNDS ~ election, data = dta_dem)
+summary (reg1_c)
+```
+
+The p-value associated with the coefficient of election (Quarters) on FFR is 1.43 * 10^-5 which is smaller than the 0.001 level of significance therefore it is very statistically significant. 
+
+(d)Graph two fitted lines for the relationship between Quarters and interest rates, one for Republicans and one for Democrats. (In Stata, use the twoway and lfit commands with appropriate if statements; label by hand. In R, use the abline command.) Briefly describe the relationship.
+
+Method 1: Using Dummy Interaction Term
+```{r}
+reg_test <- lm (FEDFUNDS ~ election + democrat + duminterac, data = dta)
+B0 = summary (reg_test)$coefficients[1]
+B1 = summary (reg_test)$coefficients[2]
+B2 = summary (reg_test)$coefficients[3]
+B3 = summary (reg_test)$coefficients[4]
+plot (dta_dem$election, dta_dem$FEDFUNDS, pch = 19, main = "Relationship between Quarters and Interest Rates", xlab = "Quarters", ylab = "Interest Rates", ylim = c(0,18))
+points (dta_rep$election, dta_rep$FEDFUNDS, pch = 2)
+abline (B0, B1, lty = 1)
+abline (B0+B2, B1+B3, lty = 2)
+legend(5,18, legend=c("Republican", "Democrat"),
+       lty = 1:2, cex=0.5)
+legend(7,18, legend=c("Republican", "Democrat"),
+       pch = c(2,19), cex = 0.5)
+```
+
+Method 2: Using Data Subset
+```{r}
+reg2 <- lm (FEDFUNDS ~ election, data = dta_dem)
+a1 = summary(reg2)$coefficients[1]
+b1 = summary(reg2)$coefficients[2]
+plot (dta_dem$election, dta_dem$FEDFUNDS, pch = 19, main = "Relationship between Quarters and Interest Rates for Democrats", xlab = "Quarters", ylab = "Interest Rates")
+abline (a1, b1, col = "red")
+```
+
+```{r}
+reg3 <- lm (FEDFUNDS ~ election, data = dta_rep)
+a2 = summary(reg3)$coefficients[1]
+b2 = summary(reg3)$coefficients[2]
+plot (dta_rep$election, dta_rep$FEDFUNDS, pch = 19, main = "Relationship between Quarters and Interest Rates for Republicans", xlab = "Quarters", ylab = "Interest Rates")
+abline (a2, b2, col = "red")
+```
+
+As we see in the graphs above, when the president is Democrat, inflation rates tend to go up as the their terms continue. In contrast, when the president is Republican, inflation rates go down sligtly as their terms continue.
+
+(e)Rerun the model from part (b) controlling for both the interest rate in the previous quarter (lag_FEDFUND) and inflation b and discuss the results, focusing on (i) effect of Quarters for Republicans, (ii) the differential effect of Quarters for Democrats, (iii) impact of lagged FFR, and (iv) inflation. Simply report the statistical significance of the coefficient estimates; don’t go through the entire analysis from part (c).
+
+```{r}
+reg4 <- lm(FEDFUNDS ~ election + democrat + duminterac + lag_FEDFUNDS + inflation, data = dta)
+summary (reg4)
+```
+
+The effect of quarters for republicants (democrat = 0) has a p-value 0.23 which is greater than the conventional 0.05 level of significance therefore is not statistically significant. 
+The differential effect of Quarters for Democrats (democrat = 1) is the coefficient for the dummy interaction term, which has a p-value of 0.09. The p-value associated with the coefficient is greater than conventional 0.05 level of significance. Therefore, the differential effect of Quarters for Democrats is also not significant.
+The effect of logged FFR has a large t statistic and a very small p-value, which is much smaller than 0.001 level of significance therefore it is highly significant.
+The effect of inflation also has a small p-value (4.23e-06) which is much smaller than 0.001 level of significance and therefore it is also highly statistically significant.
+
+4.In this problem we continue analyzing the speeding ticket data first introduced in Chapter 5 (page 175). The variables we use are in Table 6.12.
+
+(a)Implement a simple difference of means test that uses OLS to assess whether the fines for men and women are different. Do we have any reason to expect endogeneity? Explain.
+
+```{r}
+load("Ch6_Exercise4_Speeding_tickets.RData")
+```
+
+```{r}
+reg5 <- lm(Amount ~ Female, data = dta)
+summary (reg5)
+```
+
+Average fines for men (Female = 0) is 124.67 while average finds for women (Female = 1) is 124.67 - 7.94 = 116.73. The difference is the coefficient on Female dummy variable. As the coefficient on this variable is highly statistically significant (p-value much smaller than 0.001 level of significance), we reject the null that the difference is zero and we can say that the fines for men and women are different.
+
+Yes, I suspect endogeneity in this model. Let's consider MPHover. MPHover is correlated with gender (probably on average men drive faster than women) and MPHover has a big say in the fine amount. 
+
+(b)Implement a difference of means test for men and women that controls for age and miles per hour. Do we have any reason to expect endogeneity? Explain.
+
+```{r}
+reg6 <- lm(Amount ~ Female + Age + MPHover, data = dta)
+summary (reg6)
+```
+
+Holding age and MPHover constant, the difference in fine amount between women and men is 3.555. As the coefficient on Female dummy variable has a p-value of 6.3 * 10^-14, which is much smaller than the 0.001 level of significance, we reject the null that the difference is zero. Therefore, there is difference between find amounts men and women get holding all else constant, and the difference of means is 3.555. 
+
+Yes, racism may play a part in speeding tickets! Black people or ethnic minority are more likely to be fined a higher amount even when their MPHover is relatively small. 
+
+(c)Building from the model just described, also assess whether fines are higher for African-Americans and Hispanics compared to everyone else (non-Hispanic whites, Asians and others). Explain what the coefficients on these variables mean.
+
+```{r}
+reg7 <- lm(Amount ~ Female + Age + MPHover + Black + Hispanic, data = dta)
+summary (reg7)
+```
+For black: the coefficient on black is -2.029. It means that holding all else equal, blacks are, on average, fined 2.029 less than non-blacks. This coefficient is statistically significant at alpha = 0.95 (p-value smaller than 0.05).
+For Hispanic: the coefficient on hispanic is 1.93. It means that holding all else equal, hispanic drivers are on average fined 1.93 more than non-hispanic drivers. This coefficient is not statistically significant at conventional alpha = 0.95 because the associated p-value is greater than 0.05. 
+
+(d)Look at standard errors on coefficients for the Female, Black, and Hispanic variables. Why they are different?
+
+Standard errors are used to measured the average distance between actual observations and the estimates (fitted values), The standard errors on coefficients for the Female, Black, and Hispanic variables are different because the spread caused by different factors are different. 
+
+(e)Within a single OLS model, assess whether miles over the speed limit has a differential effect on the fines for women, African-Americans, and Hispanics.
+
+```{r}
+dta$mphfemale = dta$MPHover*dta$Female
+dta$mphblack = dta$MPHover*dta$Black
+dta$mphhis = dta$MPHover*dta$Hispanic
+reg8 <- lm(Amount ~ MPHover + Female + Black + Hispanic + mphfemale + mphblack + mphhis, data = dta)
+summary (reg8)
+```
+
+The interaction terms are measures of differential effects on the fines for women, blacks, and hispanics.
+From the regression result, we can see that the different effect of MPHover for women and for hispanics are statistically significant (both with p-values smaller than 0.001 level of significant and therefore highly significant). We reject the null that there is no differential effect. 
+The differential effect of MPHover for blacks has a p-value above conventional level 0.05, so it is not statistically significant. As a result, we fail to reject null that there is no differential effect for MPHover for blacks. 
+
+Question 3
+
+Relationship between civility and evaluation of President TrumpQUESTION: We want to understand the relationship between people's views of civility in politics and their views of President Trump.  In particular, do views about civility seem to affect how Democrats and Republicans view the president differently?You will need to develop a statistical model that addresses this question using the data in Battleground-65-Final-Dataset.xlsx.  The questionnaire is available in Civility-Questionnaire-.pdf.  To keep everyone on the same page, use the variable *CIVIL2* to measure civility, *DTID* to measure approval of Donald Trump.  Convert the *PARTYID* variable into a dummy variable that equals 1 for Republicans and 0 for non-Republicans.  You should control for other variables; while this could get quite involved, for the purpose of this question, you need not control for more than two other variables.
+
+```{r}
+## Read in dataset
+df <- read.xlsx("Battleground-65-Final-Dataset.xlsx",1)
+```
+
+```{r}
+## Create a dummy variable for Republican
+df$Republican = as.numeric(df$PARTYID == 1 | df$PARTYID == 2 | df$PARTYID == 3)
+## Create a dummy interaction variable for Republican * Civility
+df$repciv = df$Republican * df$CIVIL2
+```
+
+```{r}
+reg9 <- lm (DTID ~ CIVIL2 + Republican + repciv, data = df)
+summary (reg9)
+```
+Model : Trump_Approval (DTID) = B0 + B1* Civility (CIVIL2) + B2* Republican + B3* Republican * Civility + Error_term
+
+Intepretation: 
+
+When a voter is not republican, the average views of Donald Trump is around 4.03. Which means that people somewhat disagree with Trump. For non-republicans, an one-unit increase in the civility measurement (that people value civility less) tend to decrease measurement of views of Donald Trump by 0.23 unit (that people disagree less/agree more with Trump). This coefficient is highly statistically significant as the p-value associated with the coefficient is much smaller than 0.001 level of significance so that we are 99.9% confident that we reject the null that civility has no effect on views of Trump. 
+
+When a voter is republican, the average views of Donald Trump is around 1.547 (B0 + B2), meaning that most republicans somewhat agree with Donald Trump. For republicans, an one-unit increase in the civility (that people value civility less) tend to dcrease the measurement of views of Donald Trump by 0.028 unit, meaning people disagree slightly less/agree slightly more with Trump. The differential effect of civility for republicans is statistically significant because the p-value associated is less than 0.001 level of significance. So we reject the null that there is no differential effect and accept the alternative hypothesis. 
+
+In general, republicans agree more with Trump then democrats - this is obvious because partisanship plays a vital role in American politics. Also, civility matters but civility matters more for democrats than for republicans. More civil democrats have more mild political attitudes even when facing such an unusual politician. 

@@ -1,0 +1,146 @@
+---
+title: "Chapter 6 Lab"
+author: "Tianwei Liu"
+date: "10/30/19"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+## Preparation
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+require(knitr)
+require(haven)
+require(car)
+require(AER)
+library(stargazer)
+
+opts_chunk$set(echo = TRUE)
+options(digits = 6)
+```
+
+```{r message = FALSE, include = FALSE}
+rm(list = ls(all = TRUE))   # Remove objects from the previous session
+    ## setwd("/Users/baileyma/Documents/Teaching/PPOL560/PPOL560_data")
+```
+
+
+
+```{r}
+load("Chapter6_Lab.RData")
+```
+
+We will use General Social Survey data for this lab.
+The key variables we will use are
+
+ - happy: 3 very happy, 2 pretty happy, 1 not too happy
+ - married: 1 for currently married (based on dta$marital, which is 1 for married, 2 for widowed, 3 for divorced, 4 for separated, 5 for never married)
+ - sex: 1 for men, 2 for women
+ - edcat: 1 for less than high school, 2 for high school, 3 for some college and 4 for college graduate
+ - race: 1 for white, 2 for black, 3 for other races (self-identified, first race mentioned)
+
+
+#### (a) Use OLS to estimate the difference in happiness (the "happy" variable) for married versus unmarried people.  Then use the t test function to assess the difference in happiness by married status (see the Computing Corner in Chapter 6 of the book). Discuss similarities and differences in OLS model and t test function results
+
+```{r tidy = FALSE}
+reg1 <- lm(happy ~ married, data = dta)
+summary (reg1)
+```
+
+```{r}
+t.test(happy ~ married, data = dta, var.equal = TRUE)
+```
+```{r}
+summary(reg1)$coefficients[1] + summary(reg1)$coefficients[2]
+```
+
+The t-test function gives the same result as our OLS model. 
+
+Since "married" is a binary variable, in the regression model of "happy" on "married", the intercept represents the average happiness of unmarried people, and the slope coefficient stands for the mean difference in happiness between married and unmarried people.   We see that the difference in the t test is the same as the coefficient on married in the OLS model and that the t statistic and p-value are the same in both methods.
+
+#### (b) Use OLS with robust standard errors to estimate the difference in happiness for married and unmarried people.  Then use the t test function with unequal variances to assess the difference in happiness by marital status.  Discuss similarities and differences in OLS model and t test function results.
+
+```{r tidy = FALSE}
+coeftest(reg1, vcov. = vcovHC(reg1, type = "HC1"))
+```
+```{r}
+t.test(happy ~ married, data = dta, var.equal = FALSE) # t-test with unequal variance
+```
+
+The results are consistent across two methods we used above.
+
+Using robust standard errors (which in this case equals to assuming heteroskedasticity) does not change the estimated difference of means between married and unmarried people.  It does change the standard errors, but does so in the same way that the t test with unequal variance does, producing the same t statistics and t tests across the OLS and t test methods, as before.
+
+#### (c)  Create an interaction between married and age.  Estimate a model that explains happiness as a function of age and marital status, allowing for the age effect to differ according to marital status.   (For simplicity, we use only married and unmarried for marital status.)  What is the effect of age for unmarried people?  For married people?
+```{r tidy = FALSE}
+dta$marriedage <- dta$married * dta$age
+reg2 <- lm (happy ~ age + married + marriedage, data = dta)
+summary(reg2)
+```
+The model is : Happiness = B0 + B1* age + B2 * married + B3 * age * married + error_term
+In the model, the effect of age is -0.00282 (B3) for unmmarried people and  B1 + B3 = -0.00282 +  0.002350 =  -0.00047 for married people.  The intercept is 2.13 (B0) for unmarried people and B0 + B2 = 2.13 + 0.2109  =2.3409 for married people.
+
+#### (d) Estimate separate models explaining happiness in terms of age for married and unmarried people.  Comment on similarities and differences compared to results immediately above for (i) the estimated effect of age and (ii) the intercept.
+```{r tidy = FALSE}
+reg2.unmarried <- lm(happy ~ age, data = dta[dta$married == 0,])
+reg2.married <- lm(happy ~ age, data = dta[dta$married == 1,])
+```
+
+```{r}
+summary (reg2.unmarried)
+```
+We see the same results as above: the effect of age is -0.00282 for unmarried people, with an intercept of 2.130.
+```{r}
+summary(reg2.married)
+```
+The effect of age for married people is -0.000469, with and intercept of 2.3409.
+
+This is a general phenomenon: if we include all variables interacted with a dummy variable for a given group, we will get the same results as when estimating a model limited only to that group.
+
+#### (e) Marianne Bertrand wrote an article called ``Work on Women’s Work is Never Done: Career, Family, and the Well-Being of College-Educated Women'' published in the *American Economic Review: Papers & Proceedings* 2013, 103(3): 244–250.  She analyzed the effect of careers and family on college-educated women.
+
+#### She defines a career variable that is 1 if someone's earnings are above the twenty-fifth percentile in the relevant year and age group.
+
+#### Estimate a model in which happiness is a function of career, being married and an interaction of career and married ("careermarried"). To match Betrand's analysis, limit the data to only to college educated (dta\$educat==4) women (dta\$sex==2).
+
+#### Interpret the estimated average happiness for the four types of women implied by this analysis.
+
+```{r tidy = FALSE}
+reg3 <- lm(happy  ~ career + married + careermarried, data=dta[dta$sex==2 & dta$educat==4,])
+summary (reg3)
+```
+
+- College-educated women with no careers and not married have average happiness of 2.12.
+- College-educated women with careers and not married have average happiness of 2.12 + 0.09 = 2.21.  
+- College-educated women with career equal zero and married have average happiness of 2.12 + 0.29 = 2.31.  
+- College-educated women with careers and married have average happiness of 2.12 + 0.092 + 0.29 -0.099 = 2.30.  
+
+#### (f) The GSS provides a race variable (dta$race).  The variable equals 1 for white respondents, 2 for black respondents and 3 for everyone else.  Add race to the above model and interpret the coefficients related to race. Estimate another model with a different reference category and explain coefficients across the two models.
+```{r tidy = FALSE}
+reg4 <- lm(happy  ~ career + married + careermarried + factor(race), data=dta[dta$sex==2 & dta$educat==4,])
+summary (reg4)
+```
+
+```{r}
+dta$race2 <- relevel(factor(dta$race), ref = "2") 
+reg5 <- lm(happy  ~ career + married + careermarried + factor(race2), data=dta[dta$sex==2 & dta$educat==4,])
+summary(reg5)
+```
+
+Changing the referecen category does not lead to changes in the effects. White college-educted woman are in general the happiest, when holding all else equal. Black college-educated women are 0.17 less happy than white counterparts; other races are reportedly 0.10 less happy. The results are the same when changing the reference category, we just need to add the intercept and the coefficients up to get the same numbers. 
+
+#### (g): Estimate a model similar to the above, but for a different group of your choice (e.g., limit by race or gender or education) and feel free to include different covariates.
+
+```{r tidy = FALSE}
+reg6 <- lm(happy  ~ career + married + careermarried + factor(race), data=dta[dta$sex==2 & (dta$educat==4 | dta$educat == 3),])
+summary (reg6)
+```
+
+For this model limited by women who have attended at least some college, it tells us that among women who attended at least some coolege, white women are the happiest, black women and women of other races are less happy, by 0.19 and 0.077 respectively. 
+
+```{r tidy = FALSE}
+reg7 <- lm(happy  ~ career + married + careermarried + factor(race), data=dta[dta$sex==1 & (dta$educat==4 | dta$educat == 3),])
+summary (reg7)
+```
+Similarly, for men who attended at least some college, when holding else equal, whites are the happiest; blacks and men of other races are less happy, by 0.11 and 0.054 respectively.

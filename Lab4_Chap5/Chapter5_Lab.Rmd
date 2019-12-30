@@ -1,0 +1,138 @@
+---
+title: "Chapter 5 Lab Answer Key"
+#author: "Michael Bailey"
+#date: 'Last Update: October 2018'
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+## Preparation
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+require(knitr)
+require(haven)
+require(AER)
+require(car)
+
+opts_chunk$set(echo = TRUE)
+options(digits = 3)
+
+```
+
+```{r message = FALSE, include = FALSE}
+rm(list = ls(all = TRUE))   # Remove objects from the previous session
+    ## setwd("/Users/baileyma/Documents/Teaching/PPOL560/PPOL560_data")
+```
+
+
+#### (a) Estimate a model where GDP per capita (measured in 1000s of dollars *GDPpc1000*) explains fertility.  What is the coefficient on *GDPpc1000*?
+
+```{r tidy = FALSE}
+load("Chapter5_Lab_Fertility.RData")
+
+reg1 <- lm(fertility ~ GDPpc1000, data = dta)
+summary (reg1)
+```
+The estimated coefficient for GDPpc1000 is -0.073, meaning that an increase of one unit of GDPpc1000 will decrease fertility by 0.073 unit. The coefficient is statistically significant.
+
+#### (b) Add female life expectancy to the above model.  What happens to the coefficient on on GDPpc1000?  Explain in terms of omitted variable bias by calculating the expected value of the coefficient on GDP in the above model.  Be careful that the sample size stays the same on your various models (for example, re-estimate a model with GDP as the only independent variable but exclude observations for which female life expectancy is missing, as those observations are omitted when you include female life expectancy in the model).
+
+```{r tidy = FALSE}
+reg2 <- lm(fertility ~ GDPpc1000 + female_lifeexp, data = dta)
+summary (reg2)
+```
+
+
+```{r tidy = FALSE}
+reg.1b <- lm(fertility ~ GDPpc1000, data = dta[!is.na(dta$female_lifeexp),])
+summary(reg.1b)
+```
+
+```{r}
+reg_aux <- lm(female_lifeexp ~ GDPpc1000, data = dta[!is.na(dta$fertility),])
+#summary(reg_aux)
+
+expected_beta1 = reg2$coefficients[2] + reg2$coefficients[3] * reg_aux$coefficient[2]
+expected_beta1
+```
+
+When variable female_lifeexp is included in the model, the coefficient on GDPpc1000 becomes -0.005, compared with -0.073 in the model where female_lifeexp is not included. Based on the multivariate model and the auxiliary regression, we obtain the expected value of beta_1 hat is -0.0728, which is consistent with the results from reg.1b (where female_lifeexp is excluded). This is omitted variable bias. 
+
+#### (c) Add female labor participation to the above model and briefly discuss the results.
+
+```{r tidy = FALSE}
+reg3 <- lm(fertility ~ GDPpc1000 + female_lifeexp + laborpart_female, data = dta)
+summary (reg3)
+```
+The coefficient on GDPpc1000 is 0.009. An increase of a unit in GDPpc1000 will increase fertility by 0.009 unit.
+The coefficient on female_lifeexp is -0.155. An one-unit increase in female_lifeexp will decrease fertility by 0.155 unit.
+The coefficient on laborpart_female is -0.015. An one-unit increase in laborpart_female will decrease fertility by 0.015 unit.
+All three coefficients are significant. 
+
+#### (d) Is there multicollinearity in the model from the previous part? Provide evidence.
+
+```{r tidy = FALSE}
+# To test for multicollinearity we look at VIF (variance inflation factor)
+vif (reg3)
+```
+VIFs are not very high, suggesting there are not severe multicollinearity problem in this model. 
+
+#### (e) Create a variable called *female_lifeexp_noisy* that is *female_lifeexp* with some random error included; use a normally distributed random error with a standard deviation of 15. In other words, *female_lifeexp_noisy* does not equal the actual life expectancy for women, but is a "noisy" measure of the quantity. Estimate the model using the variable *female_lifeexp_noisy* and discuss any changes in coefficient on the female life expectancy variable. Relate the changes to theoretical expectations about measurement error discussed in Chapter 5.
+
+```{r tidy = FALSE}
+set.seed(1)
+dta$female_lifeexp_noisy = dta$female_lifeexp + rnorm(length(dta$female_lifeexp), sd = 15)
+```
+
+```{r}
+reg4 <- lm(fertility ~ GDPpc1000 + female_lifeexp_noisy + laborpart_female, data = dta)
+summary (reg4)
+```
+In the previous model (without noise), the estimated coefficient on female_lifeexp is -0.155. After adding noise, the coefficient on female_lifeexp_noisy becomes -0.25. This is becasue measurement errors causes attenuation bias which makes estimated coefficients closer to 0.
+
+#### (f) (Go back to non-noisy data.)  Estimate a model with standardized coefficients.  Which variable seems to have the largest effect?
+```{r tidy = FALSE}
+reg5 <- lm(scale(fertility) ~ scale(GDPpc1000) + scale(female_lifeexp) + scale(laborpart_female), data = dta)
+summary (reg5)
+```
+female_lifeexp seems to have the largest effect.
+
+#### (g) Test the null hypothesis that the effect of labor participation for women is the same as the female literacy rate.
+
+```{r tidy = FALSE}
+reg6 <- lm(fertility ~ GDPpc1000 +female_lifeexp +laborpart_female +female_litrate, data = dta) # Unrestricted model
+
+## Prepare data for the restricted model
+dta$female_labor_plus_literacy = dta$laborpart_female + dta$female_litrate
+reg6b <- lm(fertility ~ GDPpc1000 +female_lifeexp +female_labor_plus_literacy, data = dta)  # restricted model
+
+F.stat = ((summary(reg6)$r.squared - summary(reg6b)$r.squared)/1 )/((1-summary(reg6)$r.squared)/(summary(reg6)$df[2]))
+F.stat
+```
+
+```{r}
+qf(1-0.05, df1=1, df2= summary(reg6)$df[2])
+```
+The F-stat we obtained is 0.504 while the critical value is 3.86. Therefore, we fail to reject the null and that the effect of labor participation for women is the same as the female literacy rate. 
+
+#### (h) Test the null hypothesis that both the effect of labor participation for women and the effect of  female literacy rate are both zero.
+```{r tidy = FALSE}
+## Unrestricted model is reg6
+# Now we need to create a restricted model by forcing conditions
+reg7 <- lm(fertility ~ GDPpc1000 +female_lifeexp, data = dta[(!is.na(dta$laborpart_female) & !is.na(dta$female_litrate)),])
+
+F.stat1 = ((summary(reg6)$r.squared - summary(reg7)$r.squared)/2 )/((1-summary(reg6)$r.squared)/(summary(reg6)$df[2]))
+F.stat1
+
+qf(1-0.05, df1=1, df2= summary(reg6)$df[2])
+```
+Now the F-stat is 70.5 which is way above the critical value 3.86. Therefore, we reject the null that both the effect of labor participation for women and the effect of female literacy rate are both zero.
+
+#### Bonus: Add male labor participation and male life expectancy to your model. Discuss changes in the model and results.
+
+```{r tidy = FALSE}
+reg8 <- lm(formula = fertility ~ GDPpc1000 + female_lifeexp + laborpart_female + female_litrate + laborpart_male + male_lifeexp, data = dta)
+summary (reg8)
+vif (reg8)
+```
+Now, we test for multicolinearity and noticed that female_lifeexp and male_lifeexp have a high VIF therefore high multicolinearity. That's also why the standard error of these two variables are significantly higher, because multicolinearity yields higher variances.  

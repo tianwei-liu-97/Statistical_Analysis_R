@@ -1,0 +1,155 @@
+---
+title: "Chapter 12 Lab Answer Key"
+author: "Tianwei Liu"
+date: "December 11"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+## Preparation
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+require(knitr)
+require(haven)  ## install.packages("haven")
+require(car)    ## install.packages("car")
+require(AER)    ## install.packages("AER")
+library(Hmisc)  ## use the describe command
+library(mfx)
+
+opts_chunk$set(echo = TRUE)
+options(digits = 6)
+```
+
+```{r message = FALSE, include = FALSE}
+rm(list = ls(all = TRUE))   # Remove objects from the previous session
+dta <- read_dta('Ch12_lab_Titanic.dta')
+    ## setwd("/Users/baileyma/Documents/Teaching/PPOL560/PPOL560_data")
+```
+#### (a) Use a LPM to estimate the effect of passenger class on survival.
+
+```{r message = FALSE}
+# Create dummies
+dta$pclass_2 <- (dta$pclass == 2)
+dta$pclass_3 <- (dta$pclass == 3)
+
+# Run LMP
+reg.1a <- lm(survived ~ pclass_2 + pclass_3, data = dta)
+summary(reg.1a)
+```
+
+- The reference category in the model we selected is the first class. The result indicates that the probability of first class passengers surviving Titanic is 62%, as the p-value associated with the intercept is very small, it is statistically significant as 0.001 level of significant. 
+- Passengers in Class 2 are 19% less likely to survive than first class passengers, so 43% probability of surviving. The difference in means is statistically significant because the p-value is smaller than 0.001 level of significance. 
+- Passengers in Class 3 are 36% less likely to survive compared with first class passengers, so 25% probability of surviving. The difference in means is also statistically significant because the p-value is very small (smaller than 0.001 level of significance).
+
+#### (b) Assess the following: did being a women or child affected survival? Did boarding location (a rough proxy for country of origin) affect survival?  Ireland is Queenstown ("Q"), France is Cherbourg ("C") and the Englad is Southampton ("S").  Treat Southampton as the reference category.  Control for age in your model.
+```{r tidy = FALSE}
+## Create dummy variables
+dta$female    = (dta$sex == "female")
+dta$child     = (dta$age < 17)
+dta$Queenstown= (dta$embarked == "Q")
+dta$Cherbourg = (dta$embarked == "C")
+```
+
+```{r}
+reg.1b <- lm(survived ~ pclass_2 + pclass_3 + female + child + Queenstown + Cherbourg + age, data = dta)
+summary(reg.1b)
+```
+
+- Being a woman and boarding at Cherbourg affect survival.
+- The coefficient for being female and boarding at Cherbourg are very statistically significant because the p-values associated with the coefficients are very small (smaller than 0.001 level of significance). 
+- The coefficients for boarding at Queenstown and being a child are not statistically significant because the p-values are larger than 0.05 level of significance. Therefore, we fail to reject the null and conclude that there is no effect. 
+
+#### (c) For the model from above, what are the minimum and maximum predicted probabilities of survival?
+
+```{r tidy = FALSE}
+max(predict(reg.1b))
+```
+```{r}
+min(predict(reg.1b))
+```
+
+- The maximum probability is 1.13; the minimum probability is -0.18. These probability values do not make sense because probability values range from 0 to 1.
+
+#### (d)What is the name, age, gender and passenger class of the person with the lowest probability of surviving?
+
+```{r tidy = FALSE}
+id <- as.numeric(names(predict(reg.1b)[predict(reg.1b) == min(predict(reg.1b))]))
+c(dta$name[id], dta$age[id], dta$sex[id], dta$pclass[id])
+```
+#### (e) What is the name of the person with the highest probability of surviving?
+
+```{r tidy = FALSE}
+id2 <- as.numeric(names(predict(reg.1b)[predict(reg.1b) == max(predict(reg.1b))]))
+dta$name[id2]
+```
+#### (f) Estimate a probit model where survival is a function of (only) passenger class. Treat passenger class as a nominal variable.  Compare statistical significance to a similar LPM model.  Is there an easy way to interpret the coefficients?
+
+```{r tidy = FALSE}
+reg3 <- glm(survived ~ pclass_2 + pclass_3, data = dta, family = binomial(link = 'probit'))
+summary(reg3)
+```
+
+In the LPM models, all three coefficients are statistically at 0.001 level of significance (p-values are smaller than 0.001). Similarly, in the probit model, all three coefficients are statistically significant at 0.001 level.
+
+There is no easy of to intepret the coefficients. Because by nature, the prediction of a probit model depends on the particular values of Xi and also the value of other independent variables. 
+
+#### (g) Estimate a probit model where survival is a function of passenger class (treated as a nominal variable) age, gender, child and embarkation location.  What is the minimum and maximum fitted value?
+
+```{r tidy = FALSE}
+reg4 <- glm(survived ~ pclass_2 + pclass_3 + age + female + child + Queenstown + Cherbourg, data = dta, family = binomial(link = 'probit'))
+summary(reg4)
+``` 
+
+```{r}
+min(predict(reg4))
+```
+```{r}
+max(predict(reg4))
+```
+```{r}
+print (pnorm(min(predict(reg4))))
+print (pnorm(max(predict(reg4))))
+```
+
+- The minimum fitted value is -2.35, which corresponds to a 0.009 probability.
+- The maximum fitted value is 2.11, which corresponds to a 0.982 probability.
+
+#### (h) What is the name of the person with the lowest probability of surviving?
+
+```{r tidy = FALSE}
+id3 <- as.numeric(names(predict(reg4)[predict(reg4) == max(predict(reg4))]))
+dta$name[id3]
+```
+
+
+#### (i) For the above model, what is the effect of growing one year older (for an adult)?  (Do this "manually", using the observed-value, discrete difference method described in the book/lecture.)
+```{r tidy = FALSE}
+p1 = pnorm(reg4$coefficients[1] + reg4$coefficients[2]*dta$pclass_2 + reg4$coefficients[3]*dta$pclass_3 + reg4$coefficients[4]*dta$age + reg4$coefficients[5]* dta$female + reg4$coefficients[6]*0 + reg4$coefficients[7]*dta$Queenstown + reg4$coefficients[8]* dta$Cherbourg)
+```
+
+```{r}
+p2 = pnorm(reg4$coefficients[1] + reg4$coefficients[2]*dta$pclass_2 + reg4$coefficients[3]*dta$pclass_3 + reg4$coefficients[4]*(dta$age+1) + reg4$coefficients[5]* dta$female + reg4$coefficients[6]*0 + reg4$coefficients[7]*dta$Queenstown + reg4$coefficients[8]* dta$Cherbourg)
+```
+
+```{r}
+diffage = p2 - p1
+describe(diffage)
+```
+
+Using the observed value, discrete difference method, the average effect of age is -0.00388, meaning that a one-year growth in age is associated with 0.00388 decrease in the rate of survival. 
+
+#### (j) Compare the probit effect of age to the LPM effect of age in part (b)
+
+This result is similar to the coefficient given by the LPM model, which is -0.00375.
+
+#### (k)  What is the effect of the passenger class, female and child variables in the above probit model? Use the mfx package as described in the lecture. Compare the predicted effects of these variables in the probit model to the results in the LPM in part (b).  You need only discuss one of these variables, but please note all of them as you do the work.
+
+```{r tidy = FALSE}
+probitmfx(formula = survived ~ pclass_2 + pclass_3 + age + female + child + Queenstown + Cherbourg, data = dta, atmean = FALSE)
+```
+
+- Being in passenger class 2 or 3 has a negative effect on the probability of survival. Both of the two coefficients are statistically significant because two p-values are much lower than 0.001 level of significance.
+- Being female has a positive effect on the probability of survival, and the coefficient is strongly significant as the z-score is very large and p-value very samll.
+- Being a child does not have an effect on the probability of survival because the p-value is greater than conventional 0.05 level of significance. Therefore we fail to reject the null and conclude that being a child does not have an effect.
+- The predicted effects of these variables in the probit model are pretty similar to ones in the LPM. For example, the marginal effect of being female is 0.489 in the probit model with a very large z-score. In the LPM, being female also has 0.489 effect on the probability of survival and also has a very large t-statistic. 

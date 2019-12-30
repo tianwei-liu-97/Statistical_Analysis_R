@@ -1,0 +1,423 @@
+---
+title: "Chapter 7 Problem Set"
+author: "Tianwei Liu"
+date: "11/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+2.We will continue the analysis of height and wages in Britain from Exercise 5 in Chapter 5. We’ll use the data set heightwage_british_all_ multivariate.dta, which includes men and women and the variables listed in Table 7.4.12
+
+(a)Estimate a model explaining wages at age 33 as a function of female, height at age 16, mother’s education, father’s education, and number of siblings. Use standardized coefficients from Section 5.5 to assess whether height or siblings has a larger effect on wages.
+
+```{r}
+load("Ch7_Exercise2_Height_and_Wages_UK_multi.RData")
+reg1 <- lm(scale(gwage33) ~ female + scale(height16) + scale(daded) + scale(siblings) + scale(momed), data = dta)
+summary(reg1)
+```
+
+Looking at the p-values associated with the two variables, we see that they are both statistically significant, as the p-values are smaller than 0.05, which is the conventional level of significance. The coefficients on height is 0.067 which means that one standard deviation increase in height16 is associated with a 0.069 standard deviation in wage. In comparison the coefficient on siblings is -0.054, which means that one standard deviation increase in siblings is associated with a 0.054 standard deviation decrease in wage. Therefore, if we compare the absolute values of these two estimated coefficients. Height at age 16 appears to have a larger effect on wages.
+
+(b)Use bivariate OLS to implement a difference of means test across males and females. Do this twice: once with female as the dummy variable and the second time with male as the dummy variable (the male variable needs to be generated). Interpret the coefficient on the gender variable in each model, and compare results across models.
+
+```{r}
+reg2a <- lm (gwage33 ~ female, data = dta)
+summary(reg2a)
+```
+
+On average, men's wage at age 33 is 9.32. Women's average wage is 1.28 lower than men, this difference is significant as the p-value associated with the coefficient on female is smaller than 0.001 level of significance. 
+
+```{r}
+dta$male <- dta$female == 0
+reg2b <- lm (gwage33 ~ male, data = dta)
+summary(reg2b)
+```
+
+The results are exactly the same as in the previous model. On average, women earn 8.042 per hour at age 33, and men on average 1.28 more than women. 
+
+(c)Now do the same test, but with log of wages at age 33 as the dependent variable. Use female as the dummy variable. Interpret the coefficient on the female dummy variable.
+
+```{r}
+reg3 <- lm (LogWage33 ~ female, data = dta)
+summary(reg3)
+```
+
+On average, one unit increase in female (from male to female) is associated with with a 16.3% decrease in wage. As the p-value associated with the coefficient is very small, the coefficient is statistically significant at 0.001 level of significance. 
+
+(d)How much does height explain salary differences across genders? Estimate a difference of means test across genders, using logged wages as the dependent variable and controlling for height at age 33 and at age 16. Explain the results.
+
+```{r}
+reg4 <- lm(LogWage33 ~ female + height33 + height16, data = dta)
+summary(reg4)
+```
+
+The coefficient on female is -0.079, and it is statistically significant because the p-value associated with the coefficient is smaller than 0.01 level of significance. It means that females earn 7.9% less than men when controling for height at age 33 and at age 16. 
+
+(e)Does the effect of height vary across genders? Use logged wages at age 33 as the dependent variable, and control for height at age 16 and the number of siblings. Explain the estimated effect of height at age 16 for men and for women using an interaction with the female variable. Use an F test to assess whether height affects wages for women.
+
+```{r}
+dta$height16g = dta$height16 * dta$female
+reg5_unr <- lm(LogWage33 ~ female + height16 + height16g + siblings, data = dta)
+summary(reg5_unr)
+```
+
+- The effect of height at age 16 for men is when the female dummy variable is 0, so female and the dummy interaction term both equal to 0. In this case, the coefficient of height at age 16 is 0.028, meaning that one unit increase in height at age 16 for men is associated with 2.8% increase in wage at age 33.
+- The effect of height at age 16 for women is when the female dummy variable equals to 1. The coefficient for the effect of height at age 16 for women is the addition of coefficients on height16 and height16g (the dummy interaction term), which is equal to 0.0135. This means that an one-unit increase in height at age 16 is associated with a 1.35% increase in wage for women. 
+
+```{r}
+## Null hypothesis: height does not affect wage for women
+## This is saying that the effect of height16g is zero.
+## Based on this, we run our restricted model.
+reg5_res <- lm(LogWage33 ~ female + height16 + siblings, data = dta)
+summary(reg5_res)
+```
+
+```{r}
+F.stat.top = ((summary(reg5_unr)$r.squared - summary(reg5_res)$r.squared)/1)
+F.stat.bottom = ((1-summary(reg5_unr)$r.squared)/(summary(reg5_unr)$df[2]))
+F.stat = F.stat.top/F.stat.bottom
+F.stat
+```
+
+
+```{r}
+qf(1-0.05, df1=1, df2= summary(reg5_unr)$df[2])
+```
+
+As the F-statistic is smaller than the critical value. We fail to reject the null, and conclude that height does not have an effect on wage for women. 
+
+4.The book’s website provides code that will simulate a data set we can use to explore the effects of including post-treatment variables. (Stata code is in Ch7_PostTreatmentSimulation.do; R code is in Ch7_PostTreatmentSimulation.R).
+
+The first section of code simulates what happens when X1 (the independent variable of interest) affects X2, a post-treatment variable as in Figure 7.8 on page 237. Initially, we set γ1 (the direct effect of X1 on Y), α (the effect of X1 on X2), and γ2 (the effect of X2 on Y) all equal to 1.
+
+(a)Estimate a bivariate model in which Y = β0 + β1X1. What is your estimate of β1? How does this estimate change for (i) γ1 = 0, (ii) γ2 = 0 (setting γ1 back to 1), and (iii) α = 1 (setting γ1 and γ2 equal to 1).
+
+```{r}
+set.seed(411)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 1.0				## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(a) Show results when X1 is only independent variable
+  OLS.1a = lm(Y ~ X1)					## Regression model with X1 only
+  summary(OLS.1a)
+```
+```{r}
+set.seed(412)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 1.0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 0				## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(a) Show results when X1 is only independent variable
+  OLS.1b = lm(Y ~ X1)					## Regression model with X1 only
+  summary(OLS.1b)
+```
+```{r}
+set.seed(413)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 1.0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 1.0			## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(a) Show results when X1 is only independent variable
+  OLS.1c = lm(Y ~ X1)					## Regression model with X1 only
+  summary(OLS.1c)
+```
+- For gamma1 = 0, the expected value of $\hat \beta1$ is 1, and our simulation gives 0.958.
+- For gamma2 = 0, the expected value of $\hat \beta1$ is 1, and our simulation gives 1.044.
+- For all parameters equal 1, the expected value of $\hat \beta1$ is 2, and our simulation gives 1.883.
+
+(b)Estimate a multivariate model in which Y = β0 + β1X1 + β2X2. What is your estimate of β1? How does this estimate change for (i) γ1 = 0, (ii) γ2 = 0 (setting γ1 back to 1), and (iii) α = 1 (setting γ1 and γ2 equal to 1).
+
+```{r}
+set.seed(421)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 1.0				## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(b) Show results when X1 and X2 (post-treatment) are independent variables 
+  OLS.2a = lm(Y ~ X1 + X2) 				## Regression model with X1 and X2
+  summary(OLS.2a)
+```
+```{r}
+set.seed(422)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 1.0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 0				## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(b) Show results when X1 and X2 (post-treatment) are independent variables 
+  OLS.2b = lm(Y ~ X1 + X2) 				## Regression model with X1 and X2
+  summary(OLS.2b)
+```
+```{r}
+set.seed(423)
+SimCount	= 50			## Number of simulations
+N 		= 1000				## Sample size
+X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+Gamma1	= 1.0				## Direct effect of X1 on Y
+Alpha		= 1.0				## Effect of X1 on X2
+Gamma2	= 1.0				## Effect of X2 on Y
+X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+
+##	(b) Show results when X1 and X2 (post-treatment) are independent variables 
+  OLS.2c = lm(Y ~ X1 + X2) 				## Regression model with X1 and X2
+  summary(OLS.2c)
+```
+- For gamma1 = 0, the expected value of $\hat \beta1$ is 0, and our simulation gives -0.005 (not significant, so the true effect is 0).
+- For gamma2 = 0, the expected value of $\hat \beta1$ is 1, and our simulation gives 0.993.
+- For all parameters equal 1, the expected value of $\hat \beta1$ is 1, and our simulation gives 1.001.
+
+This model is committing a mediator bias. The estimate for $\beta1$ is partly soaked up by adding the post-treatment variable $X2$.
+
+(c)Come up with a real-world example with X1, X2, and Y for an analysis of interest to you.
+- X1: parents' education level
+- X2: familiy income
+- Y: SAT score
+
+Parents with a higher education are likely to be high-income people. Parents with higher education care more about their children's education, and they have more income so that they can give children better education resources that help them improve their SAT scores. Therefore, X2 is a post-treatment variable.
+
+The second section code adds an unmeasured confounder, U, to the simulation. Refer to Figure 7.9 on page 239. Initially, we set α (the effect of X1 on X2), ρ1 (the effect of U on X2), and ρ2 (the effect of U on Y) all equal to 1.
+
+(d)Estimate a bivariate model in which Y = β0 + β1X1. What is your estimate of β1? How does this estimate change for (i) α1 = 0 (ii) ρ1 = 0 (setting α1 back to 1), and (iii) ρ2 = 1 (setting α1 and ρ1 equal to 1)?
+
+```{r}
+set.seed(431)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 0		      ## Effect of X1 on X2
+Rho1	= 1		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(d) Show results when X1 is only independent variable 
+	## Note that X1 has no effect on Y in Figure 7.8 (and the simulation above)
+  OLS.X1only1 = lm(Y ~ X1) 			
+	summary(OLS.X1only1)
+```
+```{r}
+set.seed(432)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 1		      ## Effect of X1 on X2
+Rho1	= 0		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(d) Show results when X1 is only independent variable 
+	## Note that X1 has no effect on Y in Figure 7.8 (and the simulation above)
+  OLS.X1only2 = lm(Y ~ X1) 			
+	summary(OLS.X1only2)
+```
+```{r}
+set.seed(433)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 1		      ## Effect of X1 on X2
+Rho1	= 1		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(d) Show results when X1 is only independent variable 
+	## Note that X1 has no effect on Y in Figure 7.8 (and the simulation above)
+  OLS.X1only3 = lm(Y ~ X1) 			
+	summary(OLS.X1only3)
+```
+None of the $\beta1$ estimates in the above models are statistically significant, so we fail to reject the null and the estimated effect is 0.
+
+(e)Estimate a multivariate model in which Y = β0 + β1X1 + β2X2. What is your estimate of β1? How does this estimate change for (i) α1 = 0 (ii) ρ1 = 0 (setting α1 back to 1), and (iii) ρ2 = 1 (setting α1 and ρ1 equal to 1).
+```{r}
+set.seed(441)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 0		      ## Effect of X1 on X2
+Rho1	= 1		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(e) Show results when X1 and X2 (post-treatment) are independent variables 
+	OLS.X1X21 = lm(Y ~ X1 + X2) 			
+	summary(OLS.X1X21)
+```
+```{r}
+set.seed(442)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 1		      ## Effect of X1 on X2
+Rho1	= 0		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(e) Show results when X1 and X2 (post-treatment) are independent variables 
+	OLS.X1X22 = lm(Y ~ X1 + X2) 			
+	summary(OLS.X1X22)
+```
+```{r}
+#set.seed(443)
+N 		= 1000			## Sample size
+X1 	  = rnorm(N)	## Independent variable of interest
+Alpha	= 1		      ## Effect of X1 on X2
+Rho1	= 1		      ## Effect of U on X2
+Rho2	= 1		      ## Effect of U on Y
+U 	  = rnorm(N)	## Unobserved potential confounder variable U
+X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+
+##	(e) Show results when X1 and X2 (post-treatment) are independent variables 
+	OLS.X1X23 = lm(Y ~ X1 + X2) 			
+	summary(OLS.X1X23)
+```
+
+- For $ \alpha1 = 0 $, our simulation gives -0.038 (not significant, so the true effect is 0).
+- For $ \rho1 = 0 $, our simulation gives 0.064 (not significant, so the true effect is 0).
+- For all parameters equal 1, our simulation gives -0.469.
+
+This simulation commits a collider bias. The unobserved term U creates spurious effects for X1 and X2 when 1) X1 and X2 are correlated; 2) The confounder variable has an effect on X2; 3) The confounder variable has an effect on Y.
+
+(f)Come up with a real-world example with X1, X2, U, and Y for an analysis of interest to you.
+
+- X1: Undergraduate GPA
+- X2: Grad school admissions
+- U: Motivation
+- Y: Income
+
+Undergraduate GPA is contributing positively to Grad school admissions. Undergraduate GPA may also positively contribute to income. Grad school admissions determine the quality of education and therefore is linked with higher income level as well. Motivation, the confounder variable, is positively correlated with X2 and it is also related to income (highly motivated people work extra hard). All five correlations are established, and therefore we are committing a collider bias. 
+
+(g)[Advanced] Create a loop in which you run these simulations 100 times for each exercise, and record the average value of the parameter estimates.
+
+```{r}
+count <- 1 
+b <- 0
+while (count <= 100) {
+  SimCount	= 50			## Number of simulations
+  N 		= 1000				## Sample size
+  X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+  Gamma1	= 1.0				## Direct effect of X1 on Y
+  Alpha		= 1.0				## Effect of X1 on X2
+  Gamma2	= 1.0				## Effect of X2 on Y
+  X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+  Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+  count = count + 1
+  ols.sim1a <- lm(Y ~ X1)
+  b = b + ols.sim1a$coefficients[2]
+}
+b/100
+```
+
+```{r}
+count <- 1 
+b <- 0
+while (count <= 100) {
+  SimCount	= 50			## Number of simulations
+  N 		= 1000				## Sample size
+  X1 		= rnorm(N)		## Independent variable of interest (which we create as a normally distributed random variable)
+  Gamma1	= 1.0				## Direct effect of X1 on Y
+  Alpha		= 1.0				## Effect of X1 on X2
+  Gamma2	= 1.0				## Effect of X2 on Y
+  X2 		  = Alpha*X1 + rnorm(N)		            ## Post-treatment variable
+  Y 		  = Gamma1*X1 + Gamma2*X2 + rnorm(N)	## Dependent variable a function of X and post-treatment variable
+  count = count + 1
+  ols.sim1b <- lm(Y ~ X1 + X2)
+  b = b + ols.sim1b$coefficients[2]
+}
+b/100
+```
+```{r}
+count <- 1 
+b <- 0
+while (count <= 100) {
+  N 		= 1000			## Sample size
+  X1 	  = rnorm(N)	## Independent variable of interest
+  Alpha	= 1		      ## Effect of X1 on X2
+  Rho1	= 1		      ## Effect of U on X2
+  Rho2	= 1		      ## Effect of U on Y
+  U 	  = rnorm(N)	## Unobserved potential confounder variable U
+  X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+  Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+  count = count + 1
+##	(e) Show results when X1 and X2 (post-treatment) are independent variables 
+  ols.sim2a <- lm(Y ~ X1)
+  b = b + ols.sim2a$coefficients[2]
+}
+b/100
+```
+
+```{r}
+count <- 1 
+b <- 0
+while (count <= 100) {
+  N 		= 1000			## Sample size
+  X1 	  = rnorm(N)	## Independent variable of interest
+  Alpha	= 1		      ## Effect of X1 on X2
+  Rho1	= 1		      ## Effect of U on X2
+  Rho2	= 1		      ## Effect of U on Y
+  U 	  = rnorm(N)	## Unobserved potential confounder variable U
+  X2 	  = Alpha*X1 + Rho1*U + rnorm(N)  ## X2 is a function of X1 and U and an error term
+  Y 	  = Rho2*U + rnorm(N)             ## Y is only a function of U and an additional error term
+  count = count + 1
+##	(e) Show results when X1 and X2 (post-treatment) are independent variables 
+  ols.sim2b <- lm(Y ~ X1 + X2)
+  b = b + ols.sim2b$coefficients[2]
+}
+b/100
+```
+
+
+3)   One of the major changes in many economies in recent years is the dramatic decline of cash. The data set cashdata.csv contains that data in the figure in the linked article.  Create and explain (in two or three paragraphs) a model and figure that would help policymakers predict the expected level of cash use for a given level of internet penetration.
+
+```{r}
+cash <- read.csv("cashdata.csv")
+plot(cash$internetpct, cash$casheco, pch= 19)
+## We draw a scatterplot of preliminary data exploration
+```
+```{r}
+reg_poly <- lm(casheco ~ internetpct + I(internetpct^2), data = cash) 
+summary(reg_poly)
+```
+```{r}
+plot(cash$internetpct, cash$casheco,col= "darkblue", cex.axis =0.8,  xlim = c(0, 100), xlab = "Level of Internet Penetration", ylab = "Cash Use", main = "Internet Penetration vs Cash Use", pch = 19)
+curve(coef(reg_poly)[1] + coef(reg_poly)[2]*x + coef(reg_poly)[3]*x^2, add=T, lwd = 2., col="red")
+```
+The model: Cash_use = B0 + B1\times Internet_penetration + B2 \times Internet_penetration^2 + Error
+
+- Given the scatterplot, it seems like a quadratic equation would fit the pattern better than a straight line, so I chose the model explicitly stated above. The models is basically saying that when there is no Internet penetration at all, the percentage of cash use is about 70.8%. Then, the rate of change is equal to B1 + 2B2*Internet_penetration, as the slope of the curve at any point is a function of internet penetration. Cash use peaks at around 40 (seen from the graph). With the development of the Internet, cash use gradually declines as other wireless or electronic payment methods become more developed.
+- The model is a good fit for the data from multiple perspectives. First of all, the R-squared of the model is 0.8045, meaning that the model explains more than 80% of the total variance. Also, the coefficients on Internet penetration and the square of internet penetration are statistically significant, the p-values associated with the two coefficients are smaller than 0.05, the conventional level of significance, meaning that internet penetration has an effect on cash use. 
+- One potential pitfall of this model is that the numbers do not make much sense outside the reasonable range. The smallest observed level of internet penetration is about 20 and the largest being almost 100. Cash use is at a very high level when the level of internet penetration is between 20 - 50, then the trend becomes more clear that internet penetration is negatively correlated with cash use. The trend shown above for Iinternet penetration less than 20 is probably mischaracterized; in countries where internet is less developed, cash should be the dominant payment method people use. 
+

@@ -1,0 +1,77 @@
+---
+title: "Chapter 5 Problem Set"
+author: "Tianwei Liu"
+date: "10/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(car)
+```
+
+3. Do cell phones distract drivers and cause accidents? Worried that this is happening, many states recently have passed legislation to reduce distracted driving. Fourteen states now have laws making handheld cell phone use while driving illegal, and 44 states have banned texting while driving. This problem looks more closely at the relationship between cell phones and traffic fatalities. Table 5.11 describes the variables in the data set Cellphone_2012_homework.dta.
+(a) While we don’t know how many people are using their phones while driving, we can find the number of cell phone subscriptions in a state (in thousands). Estimate a bivariate model with traffic deaths as the dependent variable and number of cell phone subscriptions as the independent variable. Briefly discuss the results. Do you suspect endogeneity? If so, why?
+
+```{r}
+load("Ch5_Exercise3_Cell_phone_subscriptions.RData")
+
+reg1 <- lm(numberofdeaths ~ cell_subscription, data = dta)
+summary(reg1)
+```
+The estimated coefficient on number of cell phone subscription is 0.09, meaning that one more cellphone subscription in a state tends to increase number of deaths by 0.09. This coefficient is statistically significant because the t-value is much greater than 2.
+
+I do suspect endogeneity. Both number of deaths and number of cell phone subscription is associated with the total population in a state. More populous the state is, the more deaths and more cellphone subscription. Therefore, there is endogeneity in this model. 
+
+(b) Add population to the model. What happens to the coefficient on cell phone subscriptions? Why?
+
+```{r}
+reg2 <- lm(numberofdeaths ~ cell_subscription + population, data = dta)
+summary(reg2)
+```
+The estimated coefficient on cell phone subscription becomes negative and less statistically significant after accounting for population. 
+In (a), since population influences the number of deaths and is correlated with cell_subscription, it is an omitted variable. When we have an omitted variable, our estimate of beta1_hat is biased. Therefore, when we account for the omitted variable, the bias is reduced or removed. This is why there's a change in the estimated coefficient on cell_subscription.
+
+(c) Add total miles driven to the model. What happens to the coefficient on cell phone subscriptions? Why?
+
+```{r}
+reg3 <- lm(numberofdeaths ~ cell_subscription + population + total_miles_driven, data = dta)
+summary(reg3)
+```
+The coefficient on cell phone subscription becomes not significant. 
+In this case, as cell_subscription and population are not statistically significant, they have zero effect on number of deaths. So they are likely irrelevant variables. When we include irrelevant variables, the variance of the estimated coefficient on cell_subscription becomes higher and therefore the t-value becomes lower; and it is not statistically significant. 
+
+(d) Based on the model in part (c), calculate the variance inflation factor for population and total miles driven. Why are they different? Discuss implications of this level of multicollinearity for the coefficient estimates and the precision of the coefficient estimates.
+
+```{r}
+vif(reg3)
+```
+The VIF for population is 492.779. VIF for total miles driven is 43.0868, indicating a high level of multicollinearity. They are different because population is highly correlated with number of cellphone subscription, as cellphone is almost universal in the entire population in the US, but less relevant for total miles driven. A high collinearity also causes the variance of the estimated coefficients to be higher. This is also why coefficients become insignificant. 
+
+4. What determines how much drivers are fined if they are stopped for speeding? Do demographics like age, gender, and race matter? To answer this question, we’ll investigate traffic stops and citations in Massachusetts using data from Makowsky and Stratmann (2009). Even though state law sets a formula for tickets based on how fast a person was driving, police officers in practice often deviate from the formula. Table 5.12 describes data in speeding_tickets_text.dta that includes information on all traffic stops. An amount for the fine is given only for observations in which the police officer decided to assess a fine.
+(a) Estimate a bivariate OLS model in which ticket amount is a function of age. Is age statistically significant? Is endogeneity possible?
+
+```{r}
+load("Ch5_Exercise4_Speeding_tickets.RData")
+reg4 <- lm(Amount ~ Age, data = dta)
+summary(reg4)
+```
+The t-stat for Age is -11.68; coefficient on age is statistically significant. 
+Endogeneity is possible. Let's consider MPH over the speed limit. The larger the MPH over speed limit, the more the fine will be. Old people may drive more slowly than younger drivers, so their MPH over is likely smaller.
+
+(b) Estimate the model from part (a), also controlling for miles per hour over the speed limit. Explain what happens to the coefficient on age and why.
+
+```{r}
+reg5 <- lm(Amount ~ Age + MPHover, data = dta)
+summary(reg5)
+```
+The coefficient on age becomes positive and not significant. It is because in the model before, MPHover is an omitted variable, and the esimate for coefficient on age is biased. 
+
+(c) Suppose we had only the first thousand observations in the data set. Estimate the model from part (b), and report on what happens to the standard errors and t statistics when we have fewer observations.
+
+```{r}
+dta2 = dta[1:1000,]
+reg6 <- lm(Amount ~ Age + MPHover, data = dta2)
+summary(reg6)
+```
+Compared with the multivariate model on the entire dataset, the model on the first 1000 observations yields a higher standard error and as a result, a lower t value. This can be understood by the var(beta_j) formula, a larger N will lower the variance. 

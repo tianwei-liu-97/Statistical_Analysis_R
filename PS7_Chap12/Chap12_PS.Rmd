@@ -1,0 +1,281 @@
+---
+title: "Chapter 12 Problem Set"
+author: "Tianwei Liu"
+date: "12/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(knitr)
+require(haven)  ## install.packages("haven")
+require(car)    ## install.packages("car")
+require(AER)    ## install.packages("AER")
+library(Hmisc)  ## use the describe command
+library(mfx)
+
+```
+
+2. Public attitudes toward global warming influence the policy response to the issue. The data set EnvSurvey.dta provides data from a nationally representative survey of the U.S. public that asked multiple questions about the environment and energy. Table 12.8 lists the variables.
+```{r}
+load('Ch12_Exercise2_Global_warming.Rdata')
+```
+
+(a)Use an LPM to estimate the probability of saying that global warming is real and caused by humans (the dependent variable is HumanCause2). Control for sex, being white, education, income, age, and partisan identification.
+
+```{r}
+reg2a <- lm(humancause ~ male + white + educ + incomecat + age + party7, data = dta)
+summary(reg2a)
+```
+
+ (i)Which variable has the most important influence on this opinion? Why?
+
+partisan identification has the most important influence on this opinion. The first reason is that the coefficient on party7 is highly statistically significant (p-value is very very small), therefore, we are very confident in reject the null and conclude that partisan identification has an effect on the opinion.
+
+ (ii)What are the minimum and maximum fitted values from this model? Discuss implications briefly.
+```{r}
+min(predict(reg2a))
+```
+
+```{r}
+max(predict(reg2a))
+```
+
+- The minimum fitted value from this model is -0.197. This value doesn't make sense because probability should be between 0 and 1.
+- The maximum fitted value from this model is 0.746, meaning that in this model the highest probability of a person believing global warming is real and caused by human is 74.6%. 
+
+ (iii)Add age-squared to the model. What is the effect of age? Use a simple sketch if necessary, with key point(s) identified.
+
+```{r}
+reg2a2 <- lm(humancause ~ male + white + educ + incomecat + age + I(age^2) + party7, data = dta)
+summary(reg2a2)
+```
+
+The effect of age is a function of age: it is the derivative of $-0.00929*age + 0.0000843*age^2$ which is equal to $-0.00929 + 0.000169*age$.
+
+(b)Use a probit model to estimate the probability of saying that global warming is real and caused by humans (the dependent variable is HumanCause2). Use the independent variables from part (a), including the age-squared variable.
+
+```{r}
+reg2b <- glm(humancause ~ male + white + educ + incomecat + age + agesq + party7, family = binomial(link='probit'), data = dta)
+summary(reg2b)
+```
+
+ (i)Compare statistical significance with LPM results.
+
+Coefficients preserve statistical significance across models. In both LPM and Probit model, education and partisan identification are strongly statistically significant, with p-values smaller than 0.001 level of significance. Age and age-squared are both significant across the two models.
+
+ (ii)What are the minimum and maximum fitted values from this model? Discuss implications briefly.
+
+```{r}
+min(predict(reg2b))
+```
+
+```{r}
+max(predict(reg2b))
+```
+```{r}
+pnorm(-2.0332)
+```
+```{r}
+pnorm(0.83148)
+```
+
+The minimum and maximum fitted values are not probabilities. The minimum/maximum probability in our model is calculated using the CDF (Pr(min/max) = $\phi$ (min/max fitted values)). Given our calculation above, the model predicts the minimum probability is 0.021 and the maximum probability is 0.797.
+
+ (iii)Use the observed-value, discrete-differences approach to indicate the effect of partisan identification on the probability of saying global warming is real and caused by humans. For simplicity, simulate the effect of an increase of one unit on this seven-point scale (as opposed to the effect of one standard deviation, as we have done for continuous variables in other cases). Compare to LPM and “marginal-effects” interpretations.
+
+```{r}
+
+## Observed-value, discrete differences approach
+p11 = pnorm(reg2b$coefficients[1] + reg2b$coefficients[2]*dta$male + reg2b$coefficients[3]*dta$white + reg2b$coefficients[4]*dta$educ + reg2b$coefficients[5]* dta$incomecat + reg2b$coefficients[6]*dta$age + reg2b$coefficients[7]*dta$agesq + reg2b$coefficients[8]* dta$party7)
+
+p21 = pnorm(reg2b$coefficients[1] + reg2b$coefficients[2]*dta$male + reg2b$coefficients[3]*dta$white + reg2b$coefficients[4]*dta$educ + reg2b$coefficients[5]* dta$incomecat + reg2b$coefficients[6]*dta$age + reg2b$coefficients[7]*dta$agesq + reg2b$coefficients[8]* (dta$party7 + 1))
+
+describe(p21-p11)
+```
+```{r}
+## Marginal effects approach
+probitmfx(formula = humancause ~ male + white + educ + incomecat + age + agesq + party7, data = dta, atmean = FALSE)
+```
+
+The coefficient of the party7 variable in the LPM model is 0.087; the effect of partisan identification is 0.0867 in the observed values, discrete-differences model and 0.834 in the marginal effects model. The effects estimated using the three models are essentially the same. 
+
+ (iv)Use the observed-value, discrete-differences approach to indicate the effect of being male on the probability of saying global warming is real and caused by humans. Compare to LPM and “marginal-effects” interpretations.
+ 
+```{r}
+## Observed-value, discrete differences approach
+p12 = pnorm(reg2b$coefficients[1] + reg2b$coefficients[2]*0 + reg2b$coefficients[3]*dta$white + reg2b$coefficients[4]*dta$educ + reg2b$coefficients[5]* dta$incomecat + reg2b$coefficients[6]*dta$age + reg2b$coefficients[7]*dta$agesq + reg2b$coefficients[8]* dta$party7)
+
+p22 = pnorm(reg2b$coefficients[1] + reg2b$coefficients[2]*1 + reg2b$coefficients[3]*dta$white + reg2b$coefficients[4]*dta$educ + reg2b$coefficients[5]* dta$incomecat + reg2b$coefficients[6]*dta$age + reg2b$coefficients[7]*dta$agesq + reg2b$coefficients[8]* dta$party7)
+
+describe(p22-p12)
+```
+ 
+The marginal effect model is shown in the previous question. 
+
+The coefficient of the male variable in the LPM model is 0.0198 (difference of means because male is a dummy variable); the effect of male is 0.01976 in the observed values, discrete-differences model and 0.01976 in the marginal effects model. The effects estimated using the three models are the same, this is because for dummy variables, the marginal effects model also uses observed values, discrete-differences approach to calculate the marginal effect of that specific dummy variable. 
+ 
+ (c)The survey described in this item also included a survey experiment in which respondents were randomly assigned to different question wordings for an additional question about global warming. The idea was to see which frames were most likely to lead people to agree that the earth is getting warmer. The variable we analyze here is called WarmAgree. It records whether respondents agreed that the earth’s average temperature is rising. The experimental treatment consisted of four different ways to phrase the question.
+
+•The variable Treatment equals 1 for people who were asked “Based on your personal experiences and observations, do you agree or disagree with the following statement: The average temperature on earth is getting warmer.”
+
+•The variable Treatment equals 2 for people who were given the following information before being asked if they agreed that the average temperature of the earth is getting warmer: “The following figure [Figure 12.10] shows the average global temperature compared to the average temperature from 1951–1980. The temperature analysis comes from weather data from more than 1,000 meteorological stations around the world, satellite observations of sea surface temperature, and Antarctic research station measurements.”
+
+•The variable Treatment equals 3 for people who were given the following information before being asked if they agreed that average temperature of the earth is getting warmer: “Scientists working at the National Aeronautics and Space Administration (NASA) have concluded that the average global temperature has increased by about a half degree Celsius compared to the average temperature from 1951–1980. The temperature analysis comes from weather data from more than 1,000 meteorological stations around the world, satellite observations of sea surface temperature, and Antarctic research station measurements.”
+
+•The variable Treatment equals 4 for people who were simply asked “Do you agree or disagree with the following statement: The average temperature on earth is getting warmer.” This is the control group.
+
+Which frame was most effective in affecting opinion about global warming?
+
+```{r}
+dta$treatment1 = dta$treatment == 1
+dta$treatment2 = dta$treatment == 2
+dta$treatment3 = dta$treatment == 3
+reg3 <- glm(warmagree ~ treatment1 + treatment2 +treatment3, family = binomial(link='probit'), data = dta)
+summary(reg3)
+```
+```{r}
+probitmfx(formula = warmagree ~ treatment1 + treatment2 +treatment3, data = dta, atmean = FALSE)
+```
+
+- Choosing treatment question 4 as the reference category, i ran two models. The first is the probit model, and the second is the marginal effect model. In both models, the coefficients on all variables (treatment1, treatment2, and treatment3) are positive, which means that these three treatment questions outperform statement 4 (the probability of saying yes to the other three questions are higher than to question 4). 
+- Take a closer look, I found that the coefficient on treatment2 is statistically significant at 0.01 level for both models (as the p-value associated with treatment2 is smaller than 0.01). This means that the probability of saying yes to treatment question 4 is significantly higher than to question 4. Therefore, the second frame (treatment2) is most effective in affecting opinion on global warming. By our marginal effects model, respondents are 8.2% more likely to say yes to the second frame than the last frame. 
+
+4.Are members of Congress more likely to meet with donors than with mere constituents? To answer this question, Kalla and Broockman (2015) conducted a field experiment in which they had political activists attempt to schedule meetings with 191 congressional offices regarding efforts to ban a potentially harmful chemical. The messages the activists sent out were randomized. Some messages described the people requesting the meeting as “local constituents,” and others described the people requesting the meeting as “local campaign donors.” Table 12.10 describes two key variables from the experiment.
+```{r}
+load('Ch12_Exercise4_Congress_donors.RData')
+```
+
+(a)Before we analyze the experimental data, let’s suppose we were to conduct an observational study of access based on a sample of Americans and ran a regression in which the dependent variable indicates having met with a member of Congress and the independent variable was whether the individual donated money to a member of Congress. Would there be concerns about endogeneity? If so, why?
+
+There shouldn't be concerns about endogeneity, because this study is a RCT. In RCTs, by definition, the X variables are independent of the error term. 
+
+(b)Use a probit model to estimate the effect of the donor treatment condition on probability of meeting with a member of Congress. Interpret the results.
+
+```{r}
+dta$meetMC <- dta$staffrank == 5
+reg4 <- glm(meetMC ~ treat_donor, family = binomial(link='probit'), data = dta)
+summary(reg4)
+```
+```{r}
+pnorm(reg4$coefficients[1])
+```
+```{r}
+pnorm(reg4$coefficients[1] + reg4$coefficients[2])
+```
+
+The probit model tells us the probability of meeting with a member of congress for local constituents is 2.4%, and the probability of meeting with a congress member for campaign donors is 7.8%. However, as the coefficient on donor treatment variable is not statistically significant at the conventional 0.05 level (p-value is 0.09 > 0.05), the difference between the two groups (donors and non-donors) is not significant.
+
+(c)What factors are missing from the model? What does this omission mean for our results?
+
+- donation amount. Congress members are more likely to meet with donors who have donated a larger amount because they are the people that are important for him/her.
+- Omitting donation amount would give rise to omitted variable bias. OVB would bias our estimates. 
+
+(d)Use an LPM to make your estimate. Interpret the results. Assess the correlation of the fitted values from the probit model and LPM.
+
+```{r}
+reg4b <- lm(meetMC ~ treat_donor, data = dta)
+summary(reg4b)
+```
+
+Intepretation: being a donar is associated with 0.0545 higher likelihood of meeting with a member of congress than non-donor constituents. The difference is consistent with the prediction of the difference in probability of the Probit model. 
+
+(e)Use an LPM to assess the probability of meeting with a senior staffer (defined as staffrank > 2).
+
+```{r}
+dta$meetSenior <- dta$staffrank > 2
+reg5 <- lm (meetSenior ~ treat_donor, data = dta)
+summary(reg5)
+```
+
+The probability of meeting a senior staffer for local constituents (non-donors) is 5.5%, and the probability of meeting a senior staffer for donors is 5.5% + 13.2% = 18.7%. As p-value is less than 0.01, the coefficient on donor is statistically significant, the probability of meeting a senior staffer for donors is significantly higher than the probability for non-donors. 
+
+(f)Use an LPM to assess the probability of meeting with a low-level staffer (defined staffrank = 1).
+
+```{r}
+dta$meetlow <- dta$staffrank == 1
+reg6 <- lm (meetlow ~ treat_donor, data = dta)
+summary(reg6)
+```
+
+This model tells us the probability for local constituents (non-donors) of meeting with a low-level staffer is 12.6%. The coefficient on donor dummy variable is -0.0166 but it is not significant becasue the p-value associated with the coefficient is 0.74, larger than the conventional 0.05 level of significance. This means being a donor does not really affect the probability of meeting with a low-level staff. 
+
+POLICY MEMO 
+
+“Ban the Box” (BTB) policies restrict employers from asking about applicants’ criminal histories on job applications and are often presented as a means of reducing unemployment among black men, who disproportionately have criminal records.To assess the impact of BTB, scholars submitted online job applications on behalf of fictitious job applicants to low-skill, entry-level job openings both before and after BTB went into effect in New Jersey and New York City.  Each application signaled that the applicant was either black or white by using names that are strongly linked to one race or the other.  Race and other characteristics (such as education or whether someone had committed a crime) were all randomly assigned when crafting the application.
+
+Question: Did the difference between call-back rates for Black and White applications change after the ``ban the box'' policy went into effect? The data is available in BanTheBox.dta.  
+Here is a subset of variables that we will use.  You may not need all of them; you won't need additional variables.
+- response:    Application rec'd positive response
+- crimbox:    Application has Box
+- black:      Applicant is Black
+- white:      Applicant is White
+- ged:        Applicant has GED (equivalent to graduating from high school)
+- crime:      Applicant has criminal record
+- box_white:  Box x White
+- nocrime_box:     Applicant has no criminal reord x Box
+
+```{r}
+## Load the dataset
+btb <- read_dta('BanTheBox.dta')
+```
+
+Model 1(given BTB is passed): response ~ black + ged
+
+```{r}
+## LPM
+reg7 <- lm(response ~ black + ged , data = btb[btb$crimbox == 0, ])
+summary(reg7)
+```
+```{r}
+## Probit model 
+reg7b <- glm (response ~ black + ged, family = binomial(link='probit'), data = btb[btb$crimbox == 0, ])
+summary(reg7b)
+```
+```{r}
+pnorm(reg7b$coefficients[1])
+```
+```{r}
+pnorm(reg7b$coefficients[1] + reg7b$coefficients[2])
+```
+
+- After the BTB policy is passed, employers do not have information on applicant's criminal history, therefore I did not include crime as an independent variable, because this is not relevant for employers' decision. I run a LPM to see whether crime is an irrelevant variable or not in this case.
+
+```{r}
+reg7_ir <- lm(response ~ black + crime + ged , data = btb[btb$crimbox == 0, ])
+summary(reg7_ir)
+```
+
+- As we see in the above model, crime is an irrelevant variable because we fail to reject the null hypothesis that crime has an effect (p-value associated with crime is 0.21, which is greater than the conventional 0.05 level of significance). Therefore, I excluded crime in my analysis. 
+
+- In the probit model, white applicants have roughly probability of 13.7% to receive a call-back while black applicants's probability of receiving a call-back is 10.7%. The 3% difference is consistent with the coefficient on black dummy variable in the LPM model. As this coefficient is very statistically significant (p-value smaller than 0.001 level of significance), we conclude that there is a difference between black and white candidates, and that black candidates are 3% less likely to receive a call-back from employers. 
+
+Model 2(given BTB is still in practice and the box is still required in application): response ~ black + crime + ged
+
+```{r}
+reg72 <- lm(response ~ black + crime + ged, data =btb[btb$crimbox == 1, ])
+summary(reg72)
+```
+```{r}
+## Probit model 
+reg72b <- glm (response ~ black + crime + ged, family = binomial(link='probit'), data = btb[btb$crimbox == 1, ])
+summary(reg72b)
+```
+```{r}
+pnorm(reg72b$coefficients[1])
+```
+```{r}
+pnorm(reg72b$coefficients[1] + reg72b$coefficients[3])
+```
+
+
+- Before the BTB policy is enacted, applicants are required to provide their criminal information, therefore in this model crime is a relevant variable.
+- In this model given crime box is on application, race starts to play a little effect. Across both the LPM and the Probit model, the coefficient black is not statistically significant, with an almost 0 z-value. Therefore, we fail to reject the null hypothesis that there is a difference between black and white applicants.
+- However, crime has a really significant effect. Applicants with no criminal history has a 12.5% chance of receiving a call-back while the probability for applicants who have committed crimes is roughly 7.8%. The difference is consistent with the coefficient on crime in the LPM model. As the coefficient on crime variable is very statistically significant (p-value smaller than 0.001 level of significance), crime absolutely plays a part in employer's decision.
+
+** Conclusion **
+
+- Before BTB is in effect, I have found no evidence that employers discriminate against black people. Employers are less likely to hire people with criminal history, but they are equally likely to hire blacks compared with whites.
+- After BTB is in effect, because employers do not have information regarding whether a person has committed crimes before, they possibly assume that black people are more likely to commit a crime than white people, therefore they become less likely to hire black people. 
+- Interestingly, whether or not a person has a GED (graduated from high school) does not appear to have an effect on the probability of receiving a call-back. This may be because the study randomly applies for only low-skilled, entry-level jobs that do not require higher education. 

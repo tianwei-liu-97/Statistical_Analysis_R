@@ -1,0 +1,178 @@
+---
+title: "Chapter 3 Lab"
+author: "Tianwei Liu"
+date: 'Sep 25 2019'
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+## Preparation
+
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+require(knitr)
+require(haven)
+require(AER)
+
+opts_chunk$set(echo = TRUE)
+options(digits = 3)
+
+#add your working directory here
+opts_knit$set(root.dir ="~/Desktop/GU/Stats/Lab2(Chapter3)")
+```
+
+```{r message = FALSE, include = FALSE}
+rm(list = ls(all = TRUE))   # Remove objects from the previous session
+    ## setwd("/Users/baileyma/Documents/Teaching/PPOL560/PPOL560_data")
+
+dta <- read_dta("Ch2_lab_survey_data.dta") ## Read in dataset
+```
+
+
+#### 1)	Estimate a regression model explaining Trump feeling thermometer as a function of education.
+#### (a)	What is the slope coefficient? Briefly explain what this coefficient means. 
+```{r tidy = FALSE}
+my_reg1 <- lm(dta$therm_trump ~ dta$education, data=dta)
+summary(my_reg1)
+```
+
+The slope of this coeffieicnt is -3.038. This means that Trump feeling thermometer is negatively correlated with the level of education. In other words, the more education one receives, the less likely the person supports Trump. 
+
+#### (b) Estimate the model with robust standard errors and explain similarities and differences from results in part (a). 
+
+```{r tidy = FALSE}
+coeftest(my_reg1, vcov.=vcovHC(my_reg1,type = "HC1"))
+```
+
+Robust standard errors are bigger than std. errors result from part (a), and this makes t-values smaller.
+
+#### 2)	For the fourth observation:  What is
+#### (a) the value of education
+
+```{r tidy = FALSE}
+dta$education[4]
+```
+
+#### (b) the fitted value
+
+```{r tidy = FALSE}
+predict(my_reg1)[4]
+```
+
+#### (c) the actual therm_trump value
+```{r}
+dta$therm_trump[4]
+```
+
+#### (d) the residual
+
+```{r}
+residuals(my_reg1)[4]
+```
+
+#### 3)	Scatterplot the Trump feeling thermometer and education data. Add a fitted line from your regression. Use the jitter(2) subcommand when making the scatterplot. (If you are filling this lab sheet in by hand, you may simply produce a quick sketch what your output looks like.)
+
+```{r tidy = FALSE, fig.height = 4, fig.width = 5.5}
+plot(jitter(dta$therm_trump,2) ~ jitter(dta$education,2) , pch = 20, xlab="Education", ylab="Feeling Thermometer of Trump", main="Relationship between Education and Trump Feeling Thermometer")
+
+abline (a = coef(my_reg1)[1], b=coef(my_reg1)[2], col="red") 
+```
+
+#### 4)	Estimate a regression model explaining Clinton feeling thermometer as a function of education. What is the coefficient? Briefly explain what this model means.
+
+```{r tidy = FALSE}
+my_reg2 <- lm(dta$therm_clinton ~ dta$education)
+summary(my_reg2)
+```
+
+The slope coefficient is a positive value at 2.090. This means that feeling thermometer of Clinton is positively correlated with education level; the more education one receives, the more the person supports Clinton.
+
+#### 5) Scatterplot the Clinton feeling thermometer and education data. Add a fitted line from your regression.  (If you are filling this lab sheet in by hand, you may simply produce a quick sketch what your output looks like.)
+
+```{r tidy = FALSE, fig.height = 4, fig.width = 5.5}
+plot(jitter(dta$education,2), jitter(dta$therm_clinton,2), pch = 20, xlab="Education", ylab="Feeling Thermometer of Clinton", main="Relationship between Education and Clinton Feeling Thermometer")
+abline (a = coef(my_reg2)[1], b=coef(my_reg2)[2], col="red") 
+```
+
+
+```{r tidy = FALSE}
+
+```
+
+#### 6)	Estimate a regression model explaining Clinton feeling thermometer as a function of education for the first 400 observations only. What is $\hat{\beta}_1$?   What is the standard error of $\hat{\beta}_1$^? Compare to results from the entire sample.
+
+```{r tidy = FALSE}
+my_reg3 <- lm(dta$therm_clinton[1:400] ~ dta$education[1:400], data=dta)
+summary(my_reg3)
+```
+
+If we run regression on only the first 400 observations, the new beta1 hat is 2.42 with a standard error of 1.53, compared with regression on the entire dataset, where beta1 hat is 2.090 with a standard error 0.517. It is notable that the standard error is three times than the previous result, and it is not statistically significant. This indicates that having a larger sample size can reduce the variance of beta1 hat (recall that var(beta1_hat) = sigma^squared / N * var(X)).
+
+#### 7)	Estimate a regression model explaining Trump feeling thermometer as a function of education for Republicans only. Use robust standard errors.  What are the slope coefficient and t-statistic?
+
+```{r tidy = FALSE}
+#First, we need to make a dummy variable for republican
+dta$rep <- (dta$pol_party == 5 | dta$pol_party == 6 | dta$pol_party == 7)
+
+my_reg4 <- lm (therm_trump ~ education, data = dta[dta$rep==1,])
+coeftest(my_reg4, vcov. = vcovHC(my_reg4, type = "HC1"))
+```
+
+The slope is -6.010. The t-statistic is -6.11 and it is significant.
+This means that Trump feeling thermometer is negatively correlated with education, and the correlation effect is stronger than running the regression on the entire sample. 
+
+#### 8)	Estimate a regression model explaining Trump feeling thermometer as a function of gender (e.g., a dummy variable for women). What is the slope coefficient? What is the intercept?  Explain what they mean. 
+
+```{r tidy = FALSE}
+dta$female <- (dta$gender == 2)
+my_reg5 <- lm(therm_trump ~ female, data = dta)
+coeftest(my_reg5, vcov. = vcovHC(my_reg5, type = "HC1"))
+```
+
+The slope coefficient has a value of -4.42, meaning that female tends to dislike trump.
+The intercept coefficient has a value of 20.32, meaning that when female=0 (male), the Trump feeling thermometer is predicted to be at 20.32.
+
+#### 9)	Use the summarize command to calculate the mean value of *therm_trump* for men and women. Try to connect these values back to the regression model above.
+
+```{r tidy = FALSE}
+therm_trump_female <- mean (dta$therm_trump[dta$female==1], na.rm=TRUE)
+therm_trump_other <- mean (dta$therm_trump[dta$female==0], na.rm=TRUE)
+therm_trump_female - therm_trump_other
+```
+
+The difference between the mean values is the slope coefficient. It's not hard to understand that when running a regression on a dummy variable, the slope is the difference between the values of the two variables considered.
+
+### (10)
+
+### 10) [Advanced with new material: looping] Use a loop to estimates models on all feeling thermometer variables; use education and female as the only independent variables.  Save coefficients in a matrix.  For which feeling thermometer is the magnitude of the education coefficient the largest?  For which feeling thermometer is the magnitude of the female coefficient the largest?  (Don't worry about statistical significance at this point.)
+
+#### Note: to create a matrix of the feeling thermometer dependent variables, use *grep("^therm", names(dta))*.
+
+```{r tidy = FALSE}
+therm_vars <- grep("^therm",names(dta)) ## Grep the index of names in dta starting with "therm"
+therm_vars_no <- length (therm_vars) ## Number of variables containing "therm"
+coeffmat <- matrix (NA, nrow = therm_vars_no, ncol = 3) ## Create a coefficient matrix
+row.names (coeffmat) <- colnames (dta[ ,therm_vars]) ## Name the coefficient matrix
+colnames(coeffmat) <- c("Intercept", "Education", "Female") ## Name the columns
+therm_dta <- data.frame(dta[,therm_vars]) ## create a df
+for (i in 1 : therm_vars_no) {
+  my_reg <- lm (therm_dta[,i] ~ dta$education + dta$female)
+  coeffmat[i,] = my_reg$coefficients
+}
+print (coeffmat)
+```
+
+
+### 11) [Advanced with new material: creating a function and using list apply] Use lapply to estimate and save models using feeling thermometers as dependent variables and education and female as independent variables.  Display the coefficients.
+
+```{r tidy = FALSE}
+therm_vars_list <- dta[,therm_vars]
+counter = 0
+## list apply function
+OLS.temp = lapply(therm_vars_list, function(x) {  
+  counter = counter + 1  
+  print(noquote(c("Dependent variable: ", names(dta [,therm_vars[counter]])))) 
+  temp = lm(x ~ dta$education  + dta$female)  
+  print(summary(temp))  
+temp }   )
+```
