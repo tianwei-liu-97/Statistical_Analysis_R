@@ -3,9 +3,9 @@ title: "Chapter 12 Lab Answer Key"
 author: "Tianwei Liu"
 date: "December 11"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
   word_document: default
 ---
 ## Preparation

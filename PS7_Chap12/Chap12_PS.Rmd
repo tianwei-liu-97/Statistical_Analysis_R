@@ -2,7 +2,9 @@
 title: "Chapter 12 Problem Set"
 author: "Tianwei Liu"
 date: "12/4/2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}

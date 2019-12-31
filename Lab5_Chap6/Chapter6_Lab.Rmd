@@ -3,9 +3,9 @@ title: "Chapter 6 Lab"
 author: "Tianwei Liu"
 date: "10/30/19"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
   word_document: default
 ---
 ## Preparation
